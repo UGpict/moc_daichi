@@ -667,6 +667,16 @@ async function liveRoute(
   kind: SourceKind;
 }> {
   const travelMode = args.mode === "WALK" ? "WALK" : args.mode === "TRANSIT" ? "TRANSIT" : "DRIVE";
+  const departureMs = Date.parse(args.departureAt);
+  const body: Record<string, unknown> = {
+    origin: { location: { latLng: { latitude: args.from.lat, longitude: args.from.lng } } },
+    destination: { location: { latLng: { latitude: args.to.lat, longitude: args.to.lng } } },
+    travelMode,
+    languageCode: "ja",
+  };
+  if (Number.isFinite(departureMs) && departureMs > Date.now()) {
+    body.departureTime = args.departureAt;
+  }
   const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
     headers: {
@@ -674,16 +684,11 @@ async function liveRoute(
       "X-Goog-Api-Key": apiKey,
       "X-Goog-FieldMask": ROUTES_FIELD_MASK,
     },
-    body: JSON.stringify({
-      origin: { location: { latLng: { latitude: args.from.lat, longitude: args.from.lng } } },
-      destination: { location: { latLng: { latitude: args.to.lat, longitude: args.to.lng } } },
-      travelMode,
-      languageCode: "ja",
-      departureTime: args.departureAt,
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
+    const errText = (await res.text().catch(() => "")).slice(0, 160).replace(/\s+/g, " ");
     return {
       durationMinutes: null,
       distanceMeters: null,
@@ -695,7 +700,7 @@ async function liveRoute(
         sourceField: "duration",
         fetchedAt: realNowIso(),
         validFor: null,
-        note: `Routes 失敗 (${res.status})。直線距離では代用しない`,
+        note: `Routes 失敗 (${res.status}${errText ? `: ${errText}` : ""})。直線距離では代用しない`,
       }),
     };
   }

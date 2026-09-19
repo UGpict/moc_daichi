@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { getEnv } from "../src/config/env";
+import { tokyoToday } from "../src/lib/time";
 
 const BASE = process.env.DEMO_BASE_URL ?? "http://127.0.0.1:3000";
 const five = process.argv.includes("--five");
@@ -414,6 +415,13 @@ async function main() {
     const env = getEnv();
     process.env.ENABLE_DEMO_CONTROLS ??= "true";
     process.env.DEMO_DATE ??= env.demoDate;
+    if (env.profile === "LIVE") {
+      const today = tokyoToday();
+      if ((process.env.DEMO_DATE ?? env.demoDate) < today) {
+        process.env.DEMO_DATE = today;
+        console.log(JSON.stringify({ demoDateAdjustedToTokyoToday: today }));
+      }
+    }
     if (env.profile === "LIVE") {
       const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
       if (credPath && !existsSync(credPath)) {

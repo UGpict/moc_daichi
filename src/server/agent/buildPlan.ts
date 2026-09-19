@@ -19,6 +19,7 @@ import {
   type ProviderCtx,
 } from "@/server/providers";
 import { getCatalogSpot } from "@/server/providers/catalog";
+import { getEnv } from "@/config/env";
 
 function fact<T>(value: T | null, evidenceIds: string[] = []) {
   return { value, evidenceIds };
@@ -311,7 +312,7 @@ export async function buildPlan(input: {
     evidence.push({
       id: o.evidenceIds[0] ?? newId("ev"),
       kind: "API",
-      provider: "mock-places",
+      provider: getEnv().profile === "LIVE" ? "places" : "mock-places",
       sourceRef: item.spotId,
       sourceField: "regularOpeningHours",
       fetchedAt: new Date().toISOString(),

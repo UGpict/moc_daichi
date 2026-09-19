@@ -112,7 +112,7 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
       {
         role: "system",
         content:
-          "振り返り原文（マスク済み）だけを根拠にする。原文にない疲労質問を作らない。曖昧なら確認は原則1問。不要なら clarification は null。仮説は sourceType=HYPOTHESIS とし、確定の苦手にはしない。JSONのみ。",
+          "振り返り原文（マスク済み）だけを根拠にする。原文に書かれている好み・疲労・制約は memoryCandidates に OBSERVATION として残す。evidenceQuote は原文からの抜粋。原文に原因（立つ/歩く等）が無い疲労は確定の苦手にせず、必要なら clarification を最大1問。原文だけで保存できるなら clarification は null。好みや疲労が原文にあるのに memoryCandidates を空にしない。仮説は sourceType=HYPOTHESIS。JSONのみ。",
       },
       {
         role: "user",
@@ -141,6 +141,13 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         latencyMs: attempt.latencyMs,
         ok: attempt.ok,
       },
+      payload: attempt.data
+        ? {
+            observations: attempt.data.observations.length,
+            candidates: attempt.data.memoryCandidates.length,
+            hasClarification: Boolean(attempt.data.clarification),
+          }
+        : { error: attempt.error },
     });
   }
   await withStore((db) => {
@@ -150,6 +157,19 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
     if (llm.costJpy != null) found.run.cost.llmJpy = (found.run.cost.llmJpy ?? 0) + llm.costJpy;
     if (llm.costJpy == null && env.runtime === "LIVE") found.run.cost.unaccountedCalls += 1;
   });
+
+  if ((!llm.ok || !llm.data) && env.profile === "LIVE") {
+    await withStore((db) => {
+      const found = findRun(db, runId);
+      if (!found) return;
+      found.run.status = "FAILED";
+      found.run.error = llm.error ?? "reflection LLM failed";
+      found.run.finishedAt = realNowIso();
+      found.run.leaseOwner = null;
+    });
+    await appendEvent(runId, "RUN_FINISHED", `振り返りLLM失敗: ${llm.error ?? "unknown"}`);
+    return;
+  }
 
   const data = llm.ok && llm.data ? llm.data : mock;
   const reflectionId = reflection?.id ?? newId("ref");
