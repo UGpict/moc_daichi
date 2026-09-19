@@ -96,7 +96,7 @@ export async function callLLM<T>(input: {
         "Content-Type": "application/json",
         "X-OrcaRouter-Include-Cost": "true",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, messages: input.messages }),
       signal: input.signal ?? AbortSignal.timeout(25000),
     });
     const latencyMs = Date.now() - started;
@@ -137,6 +137,12 @@ export async function callLLM<T>(input: {
       parsed = null;
     }
     const checked = input.schema.safeParse(parsed);
+    const issue = checked.success
+      ? null
+      : checked.error.issues
+          .slice(0, 6)
+          .map((i) => `${i.path.join(".") || "root"}:${i.code}`)
+          .join(",");
     return {
       data: checked.success ? checked.data : null,
       ok: checked.success,
@@ -149,12 +155,20 @@ export async function callLLM<T>(input: {
       costJpy: usdToJpy(json.usage?.cost_usd ?? null),
       latencyMs,
       repaired: false,
-      error: checked.success ? null : "schema validation failed",
+      error: checked.success ? null : `schema validation failed${issue ? ` (${issue})` : ""}`,
     };
   };
 
   const result = await attempt();
-  if (!result.ok && result.error === "schema validation failed") {
+  if (!result.ok && result.error?.startsWith("schema validation failed")) {
+    input.messages = [
+      ...input.messages,
+      {
+        role: "user",
+        content:
+          '直前のJSONはスキーマ不一致。次のキーだけを返す: {"selectedSpotIds":["候補のid"],"rejected":[{"spotId":"id","reason":"短い理由"}],"assumptions":["残る仮定"]}',
+      },
+    ];
     const repaired = await attempt();
     repaired.repaired = true;
     return repaired;
@@ -173,10 +187,35 @@ export function estimateFromTable(
   return usdToJpy(usd);
 }
 
-export const llmActionSchema = z.object({
-  think: z.string().max(200).optional(),
+const rejectedItemSchema = z
+  .object({
+    spotId: z.string(),
+    reason: z.string(),
+  })
+  .or(
+    z
+      .object({ id: z.string(), reason: z.string().optional() })
+      .transform((v) => ({ spotId: v.id, reason: v.reason ?? "rejected" })),
+  );
+
+export const llmActionSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const o = raw as Record<string, unknown>;
+  const selected = o.selectedSpotIds ?? o.selected ?? o.spotIds ?? o.ids;
+  return {
+    think: typeof o.think === "string" ? o.think.slice(0, 400) : undefined,
+    selectedSpotIds: Array.isArray(selected)
+      ? selected.map((id) =>
+          typeof id === "string" ? id : String((id as { id?: string }).id ?? id),
+        )
+      : [],
+    rejected: o.rejected ?? [],
+    assumptions: o.assumptions ?? o.assumption ?? [],
+  };
+}, z.object({
+  think: z.string().max(400).optional(),
   selectedSpotIds: z.array(z.string()),
-  rejected: z.array(z.object({ spotId: z.string(), reason: z.string() })),
-  assumptions: z.array(z.string()),
-});
+  rejected: z.array(rejectedItemSchema).default([]),
+  assumptions: z.array(z.string()).default([]),
+}));
 export type LlmAction = z.infer<typeof llmActionSchema>;

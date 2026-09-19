@@ -389,6 +389,7 @@ export const eventTypeSchema = z.enum([
   "CACHE_HIT",
   "HTTP_ATTEMPT",
   "SCENARIO_INJECTED",
+  "ESCALATED",
   "NOTICE",
 ]);
 export type EventType = z.infer<typeof eventTypeSchema>;
