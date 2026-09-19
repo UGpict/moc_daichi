@@ -17,15 +17,57 @@ type Report = {
   failures: string[];
 };
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function portOpen(): Promise<boolean> {
+  try {
+    const res = await fetch(BASE, { signal: AbortSignal.timeout(800) });
+    return res.ok || res.status === 404 || res.status >= 400;
+  } catch {
+    return false;
+  }
+}
+
+function killDevStack() {
+  for (const cmd of [
+    "pkill -f 'tsx scripts/dev.ts'",
+    "pkill -f 'src/worker/index.ts'",
+    "pkill -f 'next-server'",
+    "pkill -f 'next dev -p 3000'",
+  ]) {
+    try {
+      execSync(cmd, { stdio: "ignore" });
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    execSync("lsof -ti :3000 | xargs -r kill -9", { stdio: "ignore" });
+  } catch {
+    /* ignore */
+  }
+}
+
+async function freePort() {
+  for (let i = 0; i < 20; i++) {
+    killDevStack();
+    await sleep(400);
+    if (!(await portOpen())) return;
+  }
+  throw new Error("port 3000 still in use after kill");
+}
+
 async function waitForServer() {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 90; i++) {
     try {
       const res = await fetch(BASE);
       if (res.ok || res.status === 404) return;
     } catch {
       /* retry */
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await sleep(500);
   }
   throw new Error("server not ready");
 }
@@ -380,12 +422,7 @@ async function main() {
       process.env.DEMO_ALLOWED_UIDS = fb.uid;
       process.env.ENABLE_DEMO_CONTROLS = "true";
       console.log(JSON.stringify({ firebaseAnonymous: true, uidPrefix: fb.uid.slice(0, 6) }));
-      try {
-        execSync("fuser -k 3000/tcp", { stdio: "ignore" });
-      } catch {
-        /* ignore */
-      }
-      await new Promise((r) => setTimeout(r, 800));
+      await freePort();
     }
     const maybe = await fetch(BASE).then(() => null).catch(() => "start");
     if (maybe === "start" || env.profile === "LIVE") {
