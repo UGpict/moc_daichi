@@ -29,7 +29,7 @@
 |---|---|
 | Named Router `orcarouter/futari-*` | `/v1/models` に無く、API から作成できない。カタログ ID を使用 |
 | 発表会場 | 住所・最寄り駅未提供 |
-| Firestore Admin | 実 Repository は接続済み。この環境の ADC は欠落/プレースホルダのため **CREDENTIALS**（UNIMPLEMENTED ではない）。LIVE は JSON へ落とさない |
+| Firestore Admin | 実 Repository と `persistBackend` 切替は実装済み。この環境の失敗は **CREDENTIALS**（プレースホルダ ADC、`open GOOGLE_APPLICATION_CREDENTIALS` / ENOENT）。PERMISSION / NOT_CONFIGURED には未到達。残データの `.data/store.json` は旧 JSON 書き込み |
 | LIVE AUTO_NOTIFY PASS | 実 Places の営業時間・料金 UNKNOWN → CONDITIONAL。CONDITIONAL を PASS にしない |
 
 `sougi` 名称はリポジトリ内に残っていない。外部サービス側の旧表示は利用者設定。

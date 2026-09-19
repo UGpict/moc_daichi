@@ -190,7 +190,13 @@ async function onePass(): Promise<Report> {
     criteria.push(judgment("persist_backend", "PASS", me.persist?.detail ?? "Firestore"));
   } else if (env.profile !== "LIVE") {
     criteria.push(judgment("persist_backend", "PASS", `DEV/json (${persistKind})`));
-  } else if (persistKind === "CREDENTIALS" || persistKind === "UNIMPLEMENTED" || persistKind === "CONNECT") {
+  } else if (
+    persistKind === "CREDENTIALS" ||
+    persistKind === "PERMISSION" ||
+    persistKind === "NOT_CONFIGURED" ||
+    persistKind === "UNIMPLEMENTED" ||
+    persistKind === "CONNECT"
+  ) {
     criteria.push(
       judgment(
         "persist_backend",

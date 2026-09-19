@@ -8,17 +8,24 @@ export async function GET(request: Request) {
   const auth = await requireUid(request);
   if ("error" in auth) return auth.error;
   const env = getEnv();
-  let persist = {
+  let persist: Record<string, unknown> = {
     backend: env.persistBackend,
-    kind: "ok" as string,
+    kind: "ok",
     detail: env.persistBackend === "json" ? "DEV はローカル JSON" : "Firestore",
   };
   try {
-    const { inspectPersist } = await import("@/server/repositories/firestore/repo");
-    persist = inspectPersist();
+    const { diagnosePersistSync } = await import("@/server/repositories/persistDiagnose");
+    persist = diagnosePersistSync();
   } catch (error) {
-    if (isPersistBlocked(error)) persist = { backend: env.persistBackend, kind: error.kind, detail: error.message };
-    else persist = { backend: env.persistBackend, kind: "UNIMPLEMENTED", detail: error instanceof Error ? error.message : "persist inspect" };
+    if (isPersistBlocked(error)) {
+      persist = { backend: env.persistBackend, kind: error.kind, detail: error.message, operation: error.operation };
+    } else {
+      persist = {
+        backend: env.persistBackend,
+        kind: "UNIMPLEMENTED",
+        detail: error instanceof Error ? error.message : "persist inspect",
+      };
+    }
   }
   let coupleId: string | null = null;
   try {

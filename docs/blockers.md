@@ -5,7 +5,7 @@
 | 項目 | 状態 | 利用者が用意するもの |
 |---|---|---|
 | Firebase Auth | PASS（この環境） | ウェブ API キーで匿名 `signUp` + `accounts:lookup`。ADC 無し |
-| Firestore Admin | BLOCKED（CREDENTIALS。未実装ではない） | 実在する ADC / `GOOGLE_APPLICATION_CREDENTIALS`。LIVE は JSON へ黙って落とさない |
+| Firestore Admin | BLOCKED **CREDENTIALS**（権限不足・未設定ではない） | 実ファイルの ADC。`.env.local` の `/path/to/service-account.json` はプレースホルダ |
 | OrcaRouter | PASS（この環境） | キーあり。Named Router `orcarouter/futari-*` は未作成のため `/v1/models` の `openai/gpt-4o-mini` / `openai/gpt-4o` |
 | Google Places / Routes | PASS（この環境） | Places New と Routes。過去の `departureTime` は送らない |
 | 東京発表会場 | BLOCKED | 会場住所と最寄り駅。デモは名古屋駅 / 東京駅を設定切替 |

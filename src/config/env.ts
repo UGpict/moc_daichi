@@ -137,7 +137,17 @@ export function persistBlockers(): { code: string; item: string; status: "BLOCKE
     return [
       {
         code: "FIRESTORE",
-        item: "認証情報不足: GOOGLE_APPLICATION_CREDENTIALS が無い。LIVE は JSON へ落とさない",
+        item: "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS が空（処理: read env）。LIVE は JSON へ落とさない",
+        status: "BLOCKED",
+        kind: "CREDENTIALS",
+      },
+    ];
+  }
+  if (path === "/path/to/service-account.json" || /\/path\/to\//.test(path)) {
+    return [
+      {
+        code: "FIRESTORE",
+        item: "CREDENTIALS: ADC パスがプレースホルダ /path/to/service-account.json（処理: open ADC file）。LIVE は JSON へ落とさない",
         status: "BLOCKED",
         kind: "CREDENTIALS",
       },
@@ -147,7 +157,7 @@ export function persistBlockers(): { code: string; item: string; status: "BLOCKE
     return [
       {
         code: "FIRESTORE",
-        item: "認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない",
+        item: "CREDENTIALS: ADC ファイルが存在しない（処理: fs.existsSync）。LIVE は JSON へ落とさない",
         status: "BLOCKED",
         kind: "CREDENTIALS",
       },

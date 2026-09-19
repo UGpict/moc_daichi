@@ -149,6 +149,17 @@ async function main() {
     rows.push({ name: "orcarouter named futari", status: "BLOCKED", detail: "no key" });
   }
 
+  rows.push(
+    await check("persist", async () => {
+      const { diagnosePersistSync } = await import("../src/server/repositories/persistDiagnose");
+      const d = diagnosePersistSync();
+      const detail = `${d.kind} ${d.detail}${d.operation ? ` op=${d.operation}` : ""}${d.errorCode ? ` code=${d.errorCode}` : ""}`;
+      if (d.kind === "ok") return { status: "PASS", detail };
+      if (d.kind === "UNIMPLEMENTED") return { status: "FAIL", detail };
+      return { status: "BLOCKED", detail };
+    }),
+  );
+
   rows.push({
     name: "venue",
     status: "BLOCKED",

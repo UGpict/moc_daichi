@@ -4,6 +4,11 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
 let app: App | null = null;
+let lastInitError: { operation: string; name: string; message: string; code: string | null } | null = null;
+
+export function lastFirebaseAdminInitError() {
+  return lastInitError;
+}
 
 export function firebaseAdminApp(): App | null {
   const env = getEnv();
@@ -17,17 +22,26 @@ export function firebaseAdminApp(): App | null {
         process.env.FIRESTORE_EMULATOR_HOST = env.firestoreEmulatorHost;
       }
       app = initializeApp({ projectId: env.firebaseProjectId ?? "futari-log-dev" });
+      lastInitError = null;
       return app;
     }
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       app = initializeApp({ credential: applicationDefault(), projectId: env.firebaseProjectId ?? undefined });
+      lastInitError = null;
       return app;
     }
     if (env.firebaseProjectId && env.profile !== "DEV") {
       app = initializeApp({ credential: applicationDefault(), projectId: env.firebaseProjectId });
+      lastInitError = null;
       return app;
     }
-  } catch {
+  } catch (error) {
+    lastInitError = {
+      operation: "firebase-admin initializeApp(applicationDefault)",
+      name: error instanceof Error ? error.name : "Error",
+      message: error instanceof Error ? error.message : String(error),
+      code: error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : null,
+    };
     return null;
   }
   return getApps()[0] ?? null;

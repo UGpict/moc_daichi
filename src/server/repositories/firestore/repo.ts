@@ -1,84 +1,39 @@
-import { existsSync, readFileSync } from "node:fs";
 import type { DocumentReference, Firestore } from "firebase-admin/firestore";
 import { getEnv } from "@/config/env";
 import { firestoreDb } from "@/server/auth/firebase";
-import { PersistBlockedError, type PersistBlockKind } from "../persistErrors";
+import { PersistBlockedError, classifyPersistFailure, redactPersistText } from "../persistErrors";
+import { diagnosePersistSync, throwIfPersistBlocked, type PersistDiagnosis } from "../persistDiagnose";
 import { emptyDb, type Db } from "../store";
 
-export type PersistInspect = {
-  backend: "json" | "firestore";
-  kind: "ok" | PersistBlockKind;
-  detail: string;
-};
+export type PersistInspect = Pick<PersistDiagnosis, "backend" | "kind" | "detail">;
 
 const META_LOCK = "_meta/lock";
 
 export function inspectAdc(): { kind: "ok" | "CREDENTIALS"; detail: string } {
-  const env = getEnv();
-  if (env.firestoreEmulatorHost) return { kind: "ok", detail: "FIRESTORE_EMULATOR_HOST" };
-  const path = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? null;
-  if (!path) return { kind: "CREDENTIALS", detail: "GOOGLE_APPLICATION_CREDENTIALS が無い" };
-  if (!existsSync(path)) return { kind: "CREDENTIALS", detail: "ADC ファイルが存在しない" };
-  try {
-    const raw = readFileSync(path, "utf8");
-    const parsed = JSON.parse(raw) as { type?: string; private_key?: string };
-    if (parsed.type !== "service_account") {
-      return { kind: "CREDENTIALS", detail: "ADC の type が service_account ではない" };
-    }
-    if (typeof parsed.private_key !== "string" || !parsed.private_key.includes("BEGIN PRIVATE KEY")) {
-      return { kind: "CREDENTIALS", detail: "ADC に有効な private_key が無い" };
-    }
-    if (/PLACEHOLDER|changeme|FIXME|YOUR_/i.test(raw)) {
-      return { kind: "CREDENTIALS", detail: "ADC がプレースホルダ" };
-    }
-    return { kind: "ok", detail: "service_account" };
-  } catch {
-    return { kind: "CREDENTIALS", detail: "ADC をJSONとして読めない" };
-  }
+  const d = diagnosePersistSync();
+  if (d.kind === "ok" || d.emulator) return { kind: "ok", detail: d.detail };
+  if (d.kind === "CREDENTIALS") return { kind: "CREDENTIALS", detail: d.detail };
+  return { kind: "CREDENTIALS", detail: d.detail };
 }
 
 export function inspectPersist(): PersistInspect {
-  const env = getEnv();
-  if (env.persistBackend === "json") {
-    return { backend: "json", kind: "ok", detail: "DEV はローカル JSON" };
-  }
-  const adc = inspectAdc();
-  if (adc.kind === "CREDENTIALS") {
-    return { backend: "firestore", kind: "CREDENTIALS", detail: adc.detail };
-  }
-  try {
-    const db = firestoreDb();
-    if (!db) {
-      return { backend: "firestore", kind: "CREDENTIALS", detail: "Firebase Admin を初期化できない（認証情報不足）" };
-    }
-  } catch (e) {
-    return {
-      backend: "firestore",
-      kind: "CONNECT",
-      detail: e instanceof Error ? e.message : "Firestore 初期化に失敗",
-    };
-  }
-  return { backend: "firestore", kind: "ok", detail: "Admin Firestore" };
+  const d = diagnosePersistSync();
+  return { backend: d.backend, kind: d.kind, detail: d.detail };
 }
 
 function requireFirestore() {
   const env = getEnv();
   if (env.persistBackend === "json") {
-    throw new PersistBlockedError("UNIMPLEMENTED", "json バックエンドで Firestore repo は呼ばない");
+    throw new PersistBlockedError("UNIMPLEMENTED", "json バックエンドで Firestore repo は呼ばない", {
+      operation: "requireFirestore",
+    });
   }
-  const inspected = inspectPersist();
-  if (inspected.kind === "CREDENTIALS") {
-    throw new PersistBlockedError("CREDENTIALS", `Firestore 認証情報不足: ${inspected.detail}。LIVE は JSON へ落とさない`);
-  }
-  if (inspected.kind === "UNIMPLEMENTED") {
-    throw new PersistBlockedError("UNIMPLEMENTED", inspected.detail);
-  }
-  if (inspected.kind === "CONNECT") {
-    throw new PersistBlockedError("CONNECT", inspected.detail);
-  }
+  throwIfPersistBlocked(diagnosePersistSync());
   const db = firestoreDb();
   if (!db) {
-    throw new PersistBlockedError("CREDENTIALS", "Firebase Admin Firestore が無い。LIVE は JSON へ落とさない");
+    throw new PersistBlockedError("CREDENTIALS", "Firebase Admin Firestore が無い。LIVE は JSON へ落とさない", {
+      operation: "firestoreDb()",
+    });
   }
   return db;
 }
@@ -330,10 +285,10 @@ async function loadDb(fs: Firestore): Promise<Db> {
     return db;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "load failed";
-    if (/UNAUTHENTICATED|invalid_grant|Could not load the default credentials|credential/i.test(msg)) {
-      throw new PersistBlockedError("CREDENTIALS", `Firestore 認証失敗: ${msg}。LIVE は JSON へ落とさない`);
-    }
-    throw new PersistBlockedError("CONNECT", `Firestore 読み込み失敗: ${msg}`);
+    const kind = classifyPersistFailure({ message: msg, operation: "loadDb" });
+    throw new PersistBlockedError(kind, `Firestore 読み込み失敗: ${redactPersistText(msg)}。LIVE は JSON へ落とさない`, {
+      operation: "loadDb",
+    });
   }
 }
 
@@ -367,10 +322,10 @@ async function commitDb(fs: Firestore, db: Db): Promise<void> {
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "write failed";
-    if (/UNAUTHENTICATED|invalid_grant|Could not load the default credentials|credential/i.test(msg)) {
-      throw new PersistBlockedError("CREDENTIALS", `Firestore 書き込み認証失敗: ${msg}。LIVE は JSON へ落とさない`);
-    }
-    throw new PersistBlockedError("CONNECT", `Firestore 書き込み失敗: ${msg}`);
+    const kind = classifyPersistFailure({ message: msg, operation: "commitDb" });
+    throw new PersistBlockedError(kind, `Firestore 書き込み失敗: ${redactPersistText(msg)}。LIVE は JSON へ落とさない`, {
+      operation: "commitDb",
+    });
   }
 }
 

@@ -14,8 +14,20 @@
 | 部分成功 | 0 / 5 |
 | FAILED | 0 / 5 |
 | BLOCKED | **5 / 5** |
-| persist | 5 本とも **CREDENTIALS**（ADC ファイルが存在しない）。UNIMPLEMENTED ではない |
+| persist | 5 本とも **CREDENTIALS**（認証情報の取得失敗）。PERMISSION / NOT_CONFIGURED / UNIMPLEMENTED ではない |
 | JSON フォールバック | なし。LIVE は Firestore 以外へ落とさず停止 |
+
+切り分け（秘密値なし。`docs/reports/persist-diagnosis.json`）:
+
+| 項目 | 値 |
+|---|---|
+| 失敗した処理 | `open GOOGLE_APPLICATION_CREDENTIALS` |
+| 実エラー | `ENOENT: placeholder path, no such file`（code `ENOENT`） |
+| 認証情報の取得失敗 | **該当**。`.env.local` がプレースホルダ `/path/to/service-account.json` |
+| 権限不足 | 未到達。Admin RPC 前に停止 |
+| Firestore 未設定 | 未到達。プロジェクト ID `futari-log-agent` はあるが Firestore の有無は未確認 |
+| コード未実装 | なし。切替と実 Repository は実装済み |
+| いまの保存先 | LIVE の新規書き込みなし。`.data/store.json`（約 4.6MB）は旧 JSON 実装の遺物 |
 
 各必須条件の判定: `docs/reports/criteria-61.json` / `docs/reports/demo-five.json`
 
@@ -65,5 +77,5 @@
 
 - Named Router `orcarouter/futari-*` は `/v1/models` に無く作成できない
 - 東京の発表会場住所・最寄り駅は未提供。デモは名古屋駅 / 東京駅を設定切替
-- Firestore Admin は実 Repository 接続済み。この環境は ADC 欠落のため **CREDENTIALS**。LIVE は JSON へ落とさない
+- Firestore：認証情報の取得失敗（プレースホルダ ADC / ENOENT）。権限不足と未設定は未到達。切替と Repository は実装済み
 - 画面収録は手順のみ（`docs/demo-script.md`）

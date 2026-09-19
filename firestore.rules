@@ -44,6 +44,26 @@ service cloud.firestore {
       allow read: if isOwner(resource.data.ownerUid);
       allow write: if false;
     }
+    match /reflections/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /spots/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /evidence/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /scenarios/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /replays/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

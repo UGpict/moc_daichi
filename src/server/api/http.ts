@@ -33,6 +33,8 @@ export function persistHttp(error: unknown): NextResponse | null {
     {
       error: error.message,
       persistKind: error.kind,
+      operation: error.operation,
+      errorCode: error.errorCode,
       blocked: true,
       outcome: "BLOCKED",
     },
