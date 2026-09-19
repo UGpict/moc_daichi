@@ -1,14 +1,23 @@
 {
-  "at": "2026-09-19T22:38:49.851Z",
+  "at": "2026-09-19T23:21:27.380Z",
+  "profile": "EMULATOR",
+  "providers": {
+    "persist": "firestore-emulator",
+    "llm": "LIVE",
+    "places": "MOCK",
+    "routes": "MOCK"
+  },
+  "countedAs": "EMULATOR",
+  "emulatorStarted": true,
   "sync": {
     "backend": "firestore",
-    "kind": "CREDENTIALS",
-    "detail": "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。",
-    "operation": "open GOOGLE_APPLICATION_CREDENTIALS",
-    "errorName": "Error",
-    "errorCode": "ENOENT",
-    "errorMessage": "ENOENT: placeholder path, no such file",
-    "currentWriteTarget": "none",
+    "kind": "ok",
+    "detail": "Firebase Emulator が応答している",
+    "operation": null,
+    "errorName": null,
+    "errorCode": null,
+    "errorMessage": null,
+    "currentWriteTarget": "firestore:emulator",
     "leftoverStoreJson": {
       "exists": true,
       "bytes": 4599436
@@ -18,29 +27,32 @@
       "firestoreRepo": true,
       "switchByPersistBackend": true,
       "scopedWrites": true,
-      "approvalTransaction": true
+      "approvalTransaction": true,
+      "userAdc": true,
+      "emulatorGuard": true
     },
     "adc": {
-      "envSet": true,
+      "envSet": false,
       "fileExists": false,
-      "pathIsPlaceholder": true,
-      "basename": "service-account.json",
+      "pathIsPlaceholder": false,
+      "basename": null,
       "parentDirExists": false,
-      "materializeSource": "placeholder",
-      "materialized": false
+      "usesApplicationDefault": true
     },
     "projectIdSet": true,
-    "emulator": false
+    "emulator": true,
+    "emulatorReady": true,
+    "refusedProduction": false
   },
   "probe": {
     "backend": "firestore",
-    "kind": "CREDENTIALS",
-    "detail": "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。",
-    "operation": "open GOOGLE_APPLICATION_CREDENTIALS",
-    "errorName": "Error",
-    "errorCode": "ENOENT",
-    "errorMessage": "ENOENT: placeholder path, no such file",
-    "currentWriteTarget": "none",
+    "kind": "ok",
+    "detail": "Emulator で couples.limit(1) が成功",
+    "operation": null,
+    "errorName": null,
+    "errorCode": null,
+    "errorMessage": null,
+    "currentWriteTarget": "firestore:emulator",
     "leftoverStoreJson": {
       "exists": true,
       "bytes": 4599436
@@ -50,27 +62,30 @@
       "firestoreRepo": true,
       "switchByPersistBackend": true,
       "scopedWrites": true,
-      "approvalTransaction": true
+      "approvalTransaction": true,
+      "userAdc": true,
+      "emulatorGuard": true
     },
     "adc": {
-      "envSet": true,
+      "envSet": false,
       "fileExists": false,
-      "pathIsPlaceholder": true,
-      "basename": "service-account.json",
+      "pathIsPlaceholder": false,
+      "basename": null,
       "parentDirExists": false,
-      "materializeSource": "placeholder",
-      "materialized": false
+      "usesApplicationDefault": true
     },
     "projectIdSet": true,
-    "emulator": false
+    "emulator": true,
+    "emulatorReady": true,
+    "refusedProduction": false
   },
   "readWrite": {
-    "attempted": false,
-    "kind": "CREDENTIALS",
-    "wrote": false,
-    "readBack": false,
-    "deleted": false,
-    "operation": "open GOOGLE_APPLICATION_CREDENTIALS",
-    "detail": "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
+    "attempted": true,
+    "kind": "ok",
+    "wrote": true,
+    "readBack": true,
+    "deleted": true,
+    "operation": "couples.doc(probe_*).set/get/delete",
+    "detail": "probe ドキュメントの書き込み・読み戻し・削除が成功"
   }
 }
