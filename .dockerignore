@@ -1,0 +1,13 @@
+node_modules
+.next
+.data
+.secrets
+.git
+.env
+.env.local
+*.md
+docs/reports
+firebase-debug.log
+firestore-debug.log
+test-results
+coverage

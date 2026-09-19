@@ -286,7 +286,7 @@ function PlanCreateForm({ me }: { me: Me }) {
 
   return (
     <div className="space-y-4">
-      <ModeBanner runtime={me.runtime} />
+      <ModeBanner runtime={me.runtime} countedAs={me.countedAs} providers={me.providers} />
       {fromPicks ? (
         <>
           <SelectedSpotTray

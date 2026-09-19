@@ -1,41 +1,34 @@
-# この Cloud Agent 環境へ Firebase Admin 認証を渡す
+# 認証：ローカルはユーザー ADC、Cloud Agent は Emulator
 
-秘密鍵・PEM・サービスアカウント JSON 本文はチャット・Git・コミット・ログに出さない。
-この文書は手順だけを書く。値はダッシュボードの入力欄にだけ貼る。
+サービスアカウント鍵は使わない。チャット・Git・ログに秘密を出さない。
 
-## 対象
+## ローカル（本物の Firestore）
 
-- Cursor Personal environment: `3af29154-b3e9-11f1-bb68-864e54d14197`
-- ダッシュボード: https://cursor.com/dashboard/cloud-agents/environments/e/3af29154-b3e9-11f1-bb68-864e54d14197
-- 公式: https://cursor.com/docs/cloud-agent/security-network
-- コードが読む名前: **`FIREBASE_SERVICE_ACCOUNT_JSON`**（JSON 本文）
+1. `gcloud auth application-default login` でユーザー ADC を入れる。
+2. `APP_RUNTIME=LIVE`。`GOOGLE_APPLICATION_CREDENTIALS` は不要。
+3. Firebase Admin は `applicationDefault()` で解決する。`type=service_account` チェックはしない。
+4. 接続結果で CREDENTIALS / PERMISSION / NOT_CONFIGURED を分ける。
+5. 本物の Firestore を含む LIVE 5 連は **このマシンで** `npm run demo:five`。Cloud Agent の Emulator 成功とは別集計。
 
-Runtime Secret はエージェント**起動時**にだけ注入される。保存しただけでは、いま動いている VM には届かない。
+仮のパス（`/path/to/service-account.json`）は読み込んだあと削除する。applicationDefault がユーザー ADC を見つけられるようにするため。
 
-## 手順
+## Cloud Agent（Firebase Emulator）
 
-1. Firebase Console でプロジェクト `futari-log-agent` のサービスアカウント JSON を**自分の端末だけ**にダウンロードする。チャットに貼らない。
-2. 上の環境ダッシュボードを開く。
-3. **Runtime Secret**（旧 Redacted Secret）を 1 件追加する。
-   - Name: `FIREBASE_SERVICE_ACCOUNT_JSON`
-   - Value: ダウンロードした JSON **全文**（`{` から `}` まで）
-   - Environment Variable ではなく Runtime Secret にする。本文がチャット・ツール結果・コミットから `[REDACTED]` になる。
-4. 保存する。JSON ファイルは手元から消してよい。リポジトリの `.env*` や `.secrets/` には置かない。
-5. **新しい Cloud Agent を起動**する（このブランチ / この PR を指定）。既存の実行には注入されない。
-6. 新しい Agent で `npm run persist:diagnose` を実行する。`kind` が `ok` なら probe の読み書きも同スクリプトが試す。
-7. その後 `npm run demo:five`（LIVE）。
+1. `npm run persist:diagnose:emu` または `npm run demo:emu:five`
+2. Auth `127.0.0.1:9099` と Firestore `127.0.0.1:8080`、projectId `futari-log-dev` で揃える
+3. 鍵なしで persist 診断とデモ確認ができる
+4. Emulator 未起動なら CONNECT で明示停止し、本番プロジェクトへは接続しない
 
-## コード側の扱い
+## 集計
 
-- `FIREBASE_SERVICE_ACCOUNT_JSON` が JSON なら `/tmp/futari-adc.json`（mode `0600`）へ展開し、`GOOGLE_APPLICATION_CREDENTIALS` をそのパスにする。
-- 展開後、プロセス上の JSON 本文は消す。ログには basename と成否だけ出す。
-- `GOOGLE_APPLICATION_CREDENTIALS` が `{` で始まる場合も同じ（誤ってパスではなく JSON を入れたとき）。
-- 実ファイルパスが既にあればそれを使う。`/path/to/service-account.json` はプレースホルダとして拒否する。
+| countedAs | 永続化 | 合格ラベル |
+|---|---|---|
+| LIVE | 本物 Firestore | 完全成功 |
+| EMULATOR | Emulator | EMULATOR成功 |
+| DEV | JSON | 部分成功（LIVE に数えない） |
 
-## やってはいけないこと
+LLM / Places / Routes は `providers.llm` `providers.places` `providers.routes` が `LIVE` か `MOCK` かを別表示する。
 
-- 秘密鍵をチャット・PR・issue・`docs/`・`.env.local` のコミットに書く
-- `cat` や `echo` で ADC ファイルや secret を出す
-- 既存 Agent のシェルに後から鍵を貼る（ログに残る）
+## 公開（Cloud Run）
 
-権限不足（PERMISSION）や Firestore 未作成（NOT_CONFIGURED）は、ADC が通ったあとで初めて分かる。
+サービスに SA を割り当て、ADC で Firestore へ接続する。鍵は作らない。手順・IAM・Secret は `docs/deploy.md`。

@@ -1,6 +1,6 @@
 import { json, persistHttp, requireUid } from "@/server/api/http";
 import { DEMO_AREAS } from "@/config/areas";
-import { getEnv, persistBlockers, publicBlockers } from "@/config/env";
+import { getEnv, persistBlockers, providerModes, publicBlockers } from "@/config/env";
 import { ownerCoupleId } from "@/server/api/actions";
 import { isPersistBlocked } from "@/server/repositories/persistErrors";
 
@@ -14,8 +14,8 @@ export async function GET(request: Request) {
     detail: env.persistBackend === "json" ? "DEV はローカル JSON" : "Firestore",
   };
   try {
-    const { diagnosePersistSync } = await import("@/server/repositories/persistDiagnose");
-    persist = diagnosePersistSync();
+    const { diagnosePersist } = await import("@/server/repositories/persistDiagnose");
+    persist = await diagnosePersist();
   } catch (error) {
     if (isPersistBlocked(error)) {
       persist = { backend: env.persistBackend, kind: error.kind, detail: error.message, operation: error.operation };
@@ -48,5 +48,7 @@ export async function GET(request: Request) {
     blockers: publicBlockers(),
     persist,
     persistBlockers: persistBlockers(),
+    providers: providerModes(),
+    countedAs: env.profile === "LIVE" ? "LIVE" : env.profile === "EMULATOR" ? "EMULATOR" : "DEV",
   });
 }

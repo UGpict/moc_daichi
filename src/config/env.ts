@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TIME_ZONE } from "./settings";
-import { materializeAdcFromEnv } from "@/server/auth/adc";
+import { stripPlaceholderAdc } from "@/server/auth/adc";
+import { emulatorHosts, probePortSync } from "@/server/auth/emulatorGuard";
 
 function loadDotEnv() {
   const g = globalThis as { __futariEnvLoaded?: boolean };
@@ -25,6 +26,7 @@ function loadDotEnv() {
 }
 
 loadDotEnv();
+stripPlaceholderAdc();
 
 function read(name: string): string | null {
   const value = process.env[name];
@@ -62,7 +64,7 @@ export function getEnv() {
   const emulatorHost = read("FIRESTORE_EMULATOR_HOST") ?? read("FIREBASE_AUTH_EMULATOR_HOST");
   let profile: AppProfile = "DEV";
   if (raw === "LIVE") profile = "LIVE";
-  else if (raw === "EMULATOR" || emulatorHost) profile = emulatorHost ? "EMULATOR" : "DEV";
+  else if (raw === "EMULATOR" || emulatorHost) profile = "EMULATOR";
   else profile = "DEV";
 
   const liveReady = firebaseConfigured && orcaConfigured && mapsConfigured;
@@ -83,12 +85,15 @@ export function getEnv() {
     orcaMundaneModel: read("ORCAROUTER_MUNDANE_MODEL") ?? "orcarouter/mundane",
     orcaHardModel: read("ORCAROUTER_HARD_MODEL") ?? "orcarouter/hard",
     googleMapsApiKey: read("GOOGLE_MAPS_API_KEY"),
-    firebaseProjectId: read("FIREBASE_PROJECT_ID") ?? read("NEXT_PUBLIC_FIREBASE_PROJECT_ID") ?? "futari-log-dev",
+    firebaseProjectId:
+      profile === "EMULATOR"
+        ? "futari-log-dev"
+        : read("FIREBASE_PROJECT_ID") ?? read("NEXT_PUBLIC_FIREBASE_PROJECT_ID") ?? "futari-log-dev",
     firebaseApiKey: read("NEXT_PUBLIC_FIREBASE_API_KEY"),
     firebaseAuthDomain: read("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"),
     firebaseAppId: read("NEXT_PUBLIC_FIREBASE_APP_ID"),
-    firestoreEmulatorHost: read("FIRESTORE_EMULATOR_HOST"),
-    authEmulatorHost: read("FIREBASE_AUTH_EMULATOR_HOST"),
+    firestoreEmulatorHost: profile === "EMULATOR" ? emulatorHosts().firestore : read("FIRESTORE_EMULATOR_HOST"),
+    authEmulatorHost: profile === "EMULATOR" ? emulatorHosts().auth : read("FIREBASE_AUTH_EMULATOR_HOST"),
     persistBackend: profile === "DEV" ? ("json" as const) : ("firestore" as const),
     enableDemoControls: readBool("ENABLE_DEMO_CONTROLS", false),
     demoAllowedUids: (read("DEMO_ALLOWED_UIDS") ?? "")
@@ -101,6 +106,11 @@ export function getEnv() {
     demoLng: readNumber("DEMO_LNG", 136.881537),
     demoDate: read("DEMO_DATE") ?? "2026-09-19",
     workerConcurrency: Math.max(1, readNumber("WORKER_CONCURRENCY", 1)),
+    workerMode: (read("WORKER_MODE") ?? (read("K_SERVICE") ? "http" : "poller")).toLowerCase(),
+    workerInvokeUrl: read("WORKER_INVOKE_URL"),
+    workerSharedSecret: read("WORKER_SHARED_SECRET"),
+    cloudTasksQueue: read("CLOUD_TASKS_QUEUE"),
+    cloudRunService: read("K_SERVICE"),
     mockAuthSecret: read("MOCK_AUTH_SECRET") ?? (profile === "LIVE" ? null : "dev-only-change-me"),
     timeZone: TIME_ZONE,
   };
@@ -129,53 +139,55 @@ export function publicBlockers(): { code: string; item: string; status: "BLOCKED
   return items;
 }
 
+export type ProviderMode = "LIVE" | "MOCK" | "BLOCKED";
+export type PersistTarget = "json" | "firestore-live" | "firestore-emulator";
+
+export function providerModes(): {
+  persist: PersistTarget;
+  llm: ProviderMode;
+  places: ProviderMode;
+  routes: ProviderMode;
+} {
+  const env = getEnv();
+  const persist: PersistTarget =
+    env.persistBackend === "json" ? "json" : env.profile === "EMULATOR" ? "firestore-emulator" : "firestore-live";
+  if (env.profile === "DEV") {
+    return { persist, llm: "MOCK", places: "MOCK", routes: "MOCK" };
+  }
+  const llm: ProviderMode = env.orcaConfigured ? "LIVE" : env.profile === "LIVE" ? "BLOCKED" : "MOCK";
+  const maps: ProviderMode = env.profile === "LIVE" ? (env.mapsConfigured ? "LIVE" : "BLOCKED") : "MOCK";
+  return { persist, llm, places: maps, routes: maps };
+}
+
 export function persistBlockers(): { code: string; item: string; status: "BLOCKED"; kind?: string }[] {
   const env = getEnv();
   if (env.persistBackend === "json") return [];
-  if (env.firestoreEmulatorHost) return [];
-  materializeAdcFromEnv();
-  const path = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (!path) {
-    return [
-      {
-        code: "FIRESTORE",
-        item: "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS が空（処理: read env）。LIVE は JSON へ落とさない",
-        status: "BLOCKED",
-        kind: "CREDENTIALS",
-      },
-    ];
-  }
-  if (path === "/path/to/service-account.json" || /\/path\/to\//.test(path)) {
-    return [
-      {
-        code: "FIRESTORE",
-        item: "CREDENTIALS: ADC パスがプレースホルダ /path/to/service-account.json（処理: open ADC file）。LIVE は JSON へ落とさない",
-        status: "BLOCKED",
-        kind: "CREDENTIALS",
-      },
-    ];
-  }
-  if (!existsSync(path)) {
-    return [
-      {
-        code: "FIRESTORE",
-        item: "CREDENTIALS: ADC ファイルが存在しない（処理: fs.existsSync）。LIVE は JSON へ落とさない",
-        status: "BLOCKED",
-        kind: "CREDENTIALS",
-      },
-    ];
+  stripPlaceholderAdc();
+  if (env.profile === "EMULATOR" || env.firestoreEmulatorHost || env.authEmulatorHost) {
+    const hosts = emulatorHosts();
+    const firestoreUp = probePortSync(hosts.firestore);
+    const authUp = probePortSync(hosts.auth);
+    if (!firestoreUp || !authUp) {
+      return [
+        {
+          code: "FIRESTORE",
+          item: `CONNECT: Firebase Emulator 未起動（firestore=${firestoreUp} auth=${authUp} @ ${hosts.firestore} / ${hosts.auth}）。本番へは接続しない`,
+          status: "BLOCKED",
+          kind: "CONNECT",
+        },
+      ];
+    }
+    return [];
   }
   return [];
 }
 
 export function assertLiveProvider(kind: "llm" | "places" | "routes"): void {
-  const env = getEnv();
-  if (env.profile !== "LIVE" && env.profile !== "EMULATOR") return;
-  if (env.profile === "LIVE") {
-    if (kind === "llm" && !env.orcaApiKey) throw new Error("BLOCKED: ORCAROUTER_API_KEY missing; not falling back to mock LLM");
-    if ((kind === "places" || kind === "routes") && !env.googleMapsApiKey) {
-      throw new Error("BLOCKED: GOOGLE_MAPS_API_KEY missing; not falling back to mock places");
-    }
+  const modes = providerModes();
+  const mode = kind === "llm" ? modes.llm : modes.places;
+  if (mode === "BLOCKED") {
+    if (kind === "llm") throw new Error("BLOCKED: ORCAROUTER_API_KEY missing; not falling back to mock LLM");
+    throw new Error("BLOCKED: GOOGLE_MAPS_API_KEY missing; not falling back to mock places");
   }
 }
 

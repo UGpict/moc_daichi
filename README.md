@@ -20,8 +20,10 @@ npm run lint
 npm test
 npm run build
 npm run doctor          # PASS / FAIL / BLOCKED。秘密は出さない
-npm run demo:live       # 通し 1 回（LIVE 合格は APP_RUNTIME=LIVE のときだけ）
-npm run demo:five       # 同一版で 5 回。失敗で停止。再計画込みで可
+npm run persist:diagnose:emu  # Cloud Agent: Emulator で読み書き（鍵不要）
+npm run demo:emu:five         # Cloud Agent: Emulator 5連。LIVE 成功には数えない
+npm run demo:live       # 通し 1 回（LIVE 合格は本物 Firestore のときだけ）
+npm run demo:five       # ローカル LIVE 5 回。Emulator 成功とは別
 npm run demo:chaos      # 空入力・矛盾希望・閉店・400/429/timeout・過去出発
 npm run demo:reset      # 自分の isDemo データだけ。REPLAY は既定で残す
 ```
@@ -58,7 +60,8 @@ flowchart LR
   Orch --> Places
 ```
 
-- Web は入力と承認だけ。PENDING の run は worker が lease して実行する
+- Web は入力と承認。PENDING はローカルでは poller、Cloud Run では `POST /api/internal/jobs` が lease して実行する
+- 公開は Cloud Run に実行 SA を割り当てる（鍵ファイルなし）。手順は `docs/deploy.md`
 - 構造化抽出は mundane、最終行程・スキーマ失敗・大きな入力は hard
 - Named Router `orcarouter/futari-*` は `/v1/models` に無ければ使わない（名前は捏造しない）
 
@@ -91,7 +94,8 @@ flowchart LR
 | `APP_RUNTIME` | `MOCK`/`DEV`（既定）または `LIVE` / Emulator |
 | `ORCAROUTER_*` | 実推論。Named Router が無いときはカタログ ID |
 | `GOOGLE_MAPS_API_KEY` | Places New / Routes |
-| Firebase `NEXT_PUBLIC_*` / ADC | 匿名 Auth と Firestore。未設定時は DEV トークン |
+| Firebase `NEXT_PUBLIC_*` | 匿名 Auth。LIVE の Admin は `gcloud auth application-default login`。GAC は不要 |
+| `WORKER_MODE` / `WORKER_INVOKE_URL` | ローカルは poller。Cloud Run は http。`docs/deploy.md` |
 | `ENABLE_DEMO_CONTROLS` | シナリオ注入。LIVE では `DEMO_ALLOWED_UIDS` に限定 |
 | `NOTIFY_ALLOWLIST` | AUTO_NOTIFY 送信先。既定 `in-app` |
 
@@ -99,7 +103,7 @@ flowchart LR
 
 - 東京の**発表会場**住所・最寄り駅は未提供。デモは名古屋駅 / 東京駅周辺を設定切替
 - OrcaRouter Named Router `orcarouter/futari-*` は API から作成できず `/v1/models` にも無い
-- Firestore Admin（実 ADC）未接続時は JSON ストア。Emulator 成功を LIVE 成功としない
+- Cloud Agent は Emulator。Emulator 成功を LIVE 成功としない。LIVE 5連はローカルのユーザー ADC
 - LIVE の AUTO_NOTIFY は行程が PASS のときだけ。営業時間・料金 UNKNOWN の CONDITIONAL は自動適用しない
 - コード・README に `sougi` 名称は残っていない。外部ダッシュボード側の旧名は利用者側の設定
 

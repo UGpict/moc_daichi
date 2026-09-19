@@ -1,31 +1,19 @@
 import { WORKER, LIMITS } from "@/config/settings";
-import { claimPendingRun, heartbeat } from "@/server/agent/lease";
-import { executeRun } from "@/server/agent/execute";
+import { processOneJob } from "@/server/jobs/dispatch";
 import { maybeRefreshDailyDigest } from "@/server/providers/dailyDigest";
 import { maskSecrets } from "@/server/security/logMask";
 
-const inflight = new Set<string>();
+let busy = false;
 
 async function loop() {
+  if (busy) return;
+  busy = true;
   try {
-    const concurrency = 1;
-    if (inflight.size >= concurrency) return;
-    const runId = await claimPendingRun();
-    if (!runId) return;
-    inflight.add(runId);
-    const beat = setInterval(() => {
-      void heartbeat(runId);
-    }, WORKER.heartbeatMs);
-    try {
-      await executeRun(runId);
-    } catch (error) {
-      console.error("worker run failed", runId, maskSecrets(String(error)));
-    } finally {
-      clearInterval(beat);
-      inflight.delete(runId);
-    }
+    await processOneJob();
   } catch (error) {
     console.error("worker persist", maskSecrets(String(error)));
+  } finally {
+    busy = false;
   }
 }
 

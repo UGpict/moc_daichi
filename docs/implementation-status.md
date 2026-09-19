@@ -19,7 +19,10 @@
 - LIVE/EMULATOR の永続化は Admin Firestore。対象ドキュメント単位の読みと差分書き。全件 get / 全件書き戻しはしない
 - 承認（PLAN_APPLY / MEMORY_*）と行程適用は Firestore `runTransaction`。JSON へ黙って落とさない
 - 「カフェ」単語だけの好評記憶補完はしない
-- Cloud Agent への ADC は Runtime Secret `FIREBASE_SERVICE_ACCOUNT_JSON`（手順は `docs/adc-cloud-agent.md`）。本文はログに出さない
+- ローカル LIVE は `gcloud auth application-default login` のユーザー ADC。`GOOGLE_APPLICATION_CREDENTIALS` や service_account 必須チェックはしない
+- Cloud Agent は Firebase Auth/Firestore Emulator（projectId `futari-log-dev`）。未起動なら本番へ繋がない。Emulator 成功と LIVE 成功は別集計
+- Cloud Run は常駐 worker を載せない。`POST /api/internal/jobs` で起動。lease / fencing / 承認トランザクションを維持。鍵ファイルなし（実行 SA の ADC）
+- 画面の集計バナーは persist / LLM / Places / Routes を個別表示する。EMULATOR を「モック実行」と書かない
 
 ## 検証済み
 
@@ -32,7 +35,8 @@
 |---|---|
 | Named Router `orcarouter/futari-*` | `/v1/models` に無く、API から作成できない。カタログ ID を使用 |
 | 発表会場 | 住所・最寄り駅未提供 |
-| Firestore Admin | 実 Repository と `persistBackend` 切替は実装済み。この環境の失敗は **CREDENTIALS**（プレースホルダ ADC、`open GOOGLE_APPLICATION_CREDENTIALS` / ENOENT）。PERMISSION / NOT_CONFIGURED には未到達。残データの `.data/store.json` は旧 JSON 書き込み |
+| Firestore Admin LIVE | Cloud Agent ではユーザー ADC が無い。LIVE 5連はローカル。ここでの確認は Emulator |
+| Cloud Run デプロイ | 設定は `docs/deploy.md`。この VM からはデプロイしていない |
 | LIVE AUTO_NOTIFY PASS | 実 Places の営業時間・料金 UNKNOWN → CONDITIONAL。CONDITIONAL を PASS にしない |
 
 `sougi` 名称はリポジトリ内に残っていない。外部サービス側の旧表示は利用者設定。

@@ -33,7 +33,11 @@ export function LandingContainer() {
       <p className="mt-3 text-ink-soft">
         一日一回、このエリアの催しや散歩先をまとめて取っておく。デートを作るときはその候補から選ぶので、準備中で待たせない。相手はこのアプリを使いません。
       </p>
-      {me ? <div className="mt-4"><ModeBanner runtime={me.runtime} /></div> : null}
+      {me ? (
+        <div className="mt-4">
+          <ModeBanner runtime={me.runtime} countedAs={me.countedAs} providers={me.providers} />
+        </div>
+      ) : null}
       <Button className="mt-8 w-full py-3" disabled={loading} onClick={() => void start()}>
         <Heart className="mr-2 h-4 w-4" />
         ゲストではじめる

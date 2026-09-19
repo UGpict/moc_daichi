@@ -1,5 +1,7 @@
 import { DEADLINES_MS, SCHEMA_VERSION, PROMPT_VERSION, TOOL_VERSION, MODEL_SETTINGS_VERSION } from "@/config/settings";
-import { getEnv, publicBlockers } from "@/config/env";
+import { getEnv, providerModes, publicBlockers } from "@/config/env";
+import { enqueueRun, scheduleEnqueueRetry } from "@/server/jobs/dispatch";
+import { maskSecrets } from "@/server/security/logMask";
 import {
   planningInputSchema,
   type PlanningInput,
@@ -49,6 +51,8 @@ export function snapshotOf(couple: CoupleBundle, bundle: SessionBundle) {
   const approvals = Object.values(couple.approvals).filter((a) => a.sessionId === bundle.session.id);
   return {
     runtime: env.profile === "LIVE" ? "LIVE" : env.profile === "EMULATOR" ? "EMULATOR" : "DEV",
+    countedAs: env.profile === "LIVE" ? "LIVE" : env.profile === "EMULATOR" ? "EMULATOR" : "DEV",
+    providers: providerModes(),
     blockers: publicBlockers(),
     couple: couple.couple,
     session: bundle.session,
@@ -177,7 +181,7 @@ export async function startRun(input: {
   bodyHash: string;
   reflectionNote?: string | null;
 }) {
-  return withStore((db) => {
+  const result = await withStore((db) => {
     if (input.idempotencyKey) {
       const prev = db.idempotency[input.idempotencyKey];
       if (prev) {
@@ -231,6 +235,7 @@ export async function startRun(input: {
       leaseOwner: null,
       leaseExpiresAt: null,
       heartbeatAt: null,
+      dispatchAttempts: 0,
       trigger: input.trigger ?? null,
       basePlanVersion: found.bundle.session.currentPlanVersion,
       resultPlanVersion: null,
@@ -278,15 +283,37 @@ export async function startRun(input: {
     }
     return { ok: true as const, duplicated: false, runId: id };
   }, { sessionId: input.sessionId, idempotencyKey: input.idempotencyKey ?? undefined });
+  if (result.ok && result.runId) {
+    void enqueueRun(result.runId)
+      .then((enqueued) => {
+        if (!enqueued.accepted) scheduleEnqueueRetry(result.runId);
+      })
+      .catch((error) => {
+        scheduleEnqueueRetry(result.runId);
+        console.error("job enqueue", maskSecrets(String(error)));
+      });
+  }
+  return result;
+}
+
+function kickPendingRuns(runs: { id: string; status: string }[]) {
+  for (const run of runs) {
+    if (run.status !== "PENDING") continue;
+    void enqueueRun(run.id).catch((error) => {
+      console.error("job kick", maskSecrets(String(error)));
+    });
+  }
 }
 
 export async function getSessionSnapshot(uid: string, sessionId: string) {
-  return readStore((db) => {
+  const result = await readStore((db) => {
     const found = findSession(db, sessionId);
     if (!found) return { ok: false as const, status: 404, error: "not found" };
     if (found.couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
     return { ok: true as const, data: snapshotOf(found.couple, found.bundle) };
   }, { sessionId });
+  if (result.ok) kickPendingRuns(result.data.runs);
+  return result;
 }
 
 export async function getRunView(uid: string, runId: string) {

@@ -1,455 +1,362 @@
 {
-  "at": "2026-09-19T22:39:05.433Z",
+  "at": "2026-09-19T23:15:21.062Z",
   "spec": "v0.4 §6.1",
   "reports": [
     {
-      "git": "03b995f",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
+      "git": "e6ee626",
+      "runIds": [
+        "run_ee9c17b8993c30dc"
+      ],
+      "durationsMs": [
+        16805
+      ],
+      "costs": [
+        {
+          "llmJpy": 0,
+          "apiJpy": 0,
+          "mundaneCalls": 0,
+          "hardCalls": 0,
+          "unaccountedCalls": 0
+        }
+      ],
       "notes": [
-        "persist BLOCKED CREDENTIALS"
+        "providers persist=firestore-emulator llm=LIVE places=MOCK routes=MOCK",
+        "repairs=2",
+        "llmTraceUsd=0.002496 jpy=0.37065600000000004 rows=8",
+        "first status=WAITING_INPUT validation=FAIL items=3 runs=INITIAL_PLAN:WAITING_INPUT"
       ],
       "failures": [
-        "persist CREDENTIALS"
+        "initial validation FAIL: OVER_BUDGET_FACILITIES,MUST_UNMET",
+        "initial run WAITING_INPUT"
       ],
-      "repairCount": 0,
+      "repairCount": 2,
       "criteria": [
+        {
+          "id": "persist_backend",
+          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
+          "verdict": "PASS",
+          "detail": "Emulator で couples.limit(1) が成功"
+        },
         {
           "id": "spots_3_to_4",
           "label": "滞在は3〜4件",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "items=3"
         },
         {
           "id": "locked_item",
           "label": "固定予定がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "it_510164c85fff987c"
         },
         {
           "id": "no_closed",
           "label": "CLOSED の店を入れない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "no CLOSED"
         },
         {
           "id": "initial_not_fail",
           "label": "初回検証が FAIL ではない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "rain_auto_notify",
-          "label": "雨は AUTO_NOTIFY（承認待ちは完全成功にしない）",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_waiting_approval",
-          "label": "遅延は承認待ち",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_not_applied_early",
-          "label": "遅延承認前に行程を変えない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "reflection_one_question",
-          "label": "振り返りで確認質問が1問",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_not_saved_before_approval",
-          "label": "承認前に記憶を保存しない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_saved_after_approval",
-          "label": "承認後に記憶がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "next_plan_memory_influence",
-          "label": "次回行程に記憶の影響が見える",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "persist_backend",
-          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
-          "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
+          "verdict": "FAIL",
+          "detail": "FAIL OVER_BUDGET_FACILITIES,MUST_UNMET"
         }
       ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
+      "persistKind": "ok",
+      "providers": {
+        "persist": "firestore-emulator",
+        "llm": "LIVE",
+        "places": "MOCK",
+        "routes": "MOCK"
+      },
+      "countedAs": "EMULATOR",
+      "outcome": "FAILED",
       "ok": false
     },
     {
-      "git": "03b995f",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
+      "git": "e6ee626",
+      "runIds": [
+        "run_e36650af387dba98"
+      ],
+      "durationsMs": [
+        14717
+      ],
+      "costs": [
+        {
+          "llmJpy": 0,
+          "apiJpy": 0,
+          "mundaneCalls": 0,
+          "hardCalls": 0,
+          "unaccountedCalls": 0
+        }
+      ],
       "notes": [
-        "persist BLOCKED CREDENTIALS"
+        "providers persist=firestore-emulator llm=LIVE places=MOCK routes=MOCK",
+        "repairs=2",
+        "llmTraceUsd=0.0018880000000000001 jpy=0.280368 rows=8",
+        "first status=WAITING_INPUT validation=FAIL items=2 runs=INITIAL_PLAN:WAITING_INPUT"
       ],
       "failures": [
-        "persist CREDENTIALS"
+        "spot count 2",
+        "initial validation FAIL: OVER_BUDGET_FACILITIES,MUST_UNMET",
+        "initial run WAITING_INPUT"
       ],
-      "repairCount": 0,
+      "repairCount": 2,
       "criteria": [
+        {
+          "id": "persist_backend",
+          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
+          "verdict": "PASS",
+          "detail": "Emulator で couples.limit(1) が成功"
+        },
         {
           "id": "spots_3_to_4",
           "label": "滞在は3〜4件",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "FAIL",
+          "detail": "items=2"
         },
         {
           "id": "locked_item",
           "label": "固定予定がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "it_710ea6f02a45b397"
         },
         {
           "id": "no_closed",
           "label": "CLOSED の店を入れない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "no CLOSED"
         },
         {
           "id": "initial_not_fail",
           "label": "初回検証が FAIL ではない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "rain_auto_notify",
-          "label": "雨は AUTO_NOTIFY（承認待ちは完全成功にしない）",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_waiting_approval",
-          "label": "遅延は承認待ち",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_not_applied_early",
-          "label": "遅延承認前に行程を変えない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "reflection_one_question",
-          "label": "振り返りで確認質問が1問",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_not_saved_before_approval",
-          "label": "承認前に記憶を保存しない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_saved_after_approval",
-          "label": "承認後に記憶がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "next_plan_memory_influence",
-          "label": "次回行程に記憶の影響が見える",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "persist_backend",
-          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
-          "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
+          "verdict": "FAIL",
+          "detail": "FAIL OVER_BUDGET_FACILITIES,MUST_UNMET"
         }
       ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
+      "persistKind": "ok",
+      "providers": {
+        "persist": "firestore-emulator",
+        "llm": "LIVE",
+        "places": "MOCK",
+        "routes": "MOCK"
+      },
+      "countedAs": "EMULATOR",
+      "outcome": "FAILED",
       "ok": false
     },
     {
-      "git": "03b995f",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
+      "git": "e6ee626",
+      "runIds": [
+        "run_fd08f3329a09ccfc"
+      ],
+      "durationsMs": [
+        14746
+      ],
+      "costs": [
+        {
+          "llmJpy": 0,
+          "apiJpy": 0,
+          "mundaneCalls": 0,
+          "hardCalls": 0,
+          "unaccountedCalls": 0
+        }
+      ],
       "notes": [
-        "persist BLOCKED CREDENTIALS"
+        "providers persist=firestore-emulator llm=LIVE places=MOCK routes=MOCK",
+        "repairs=2",
+        "llmTraceUsd=0.002252 jpy=0.33442200000000005 rows=8",
+        "first status=WAITING_INPUT validation=FAIL items=3 runs=INITIAL_PLAN:WAITING_INPUT"
       ],
       "failures": [
-        "persist CREDENTIALS"
+        "initial validation FAIL: OVER_BUDGET_FACILITIES,MUST_UNMET",
+        "initial run WAITING_INPUT"
       ],
-      "repairCount": 0,
+      "repairCount": 2,
       "criteria": [
+        {
+          "id": "persist_backend",
+          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
+          "verdict": "PASS",
+          "detail": "Emulator で couples.limit(1) が成功"
+        },
         {
           "id": "spots_3_to_4",
           "label": "滞在は3〜4件",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "items=3"
         },
         {
           "id": "locked_item",
           "label": "固定予定がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "it_05a9bcb32212cfd1"
         },
         {
           "id": "no_closed",
           "label": "CLOSED の店を入れない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "no CLOSED"
         },
         {
           "id": "initial_not_fail",
           "label": "初回検証が FAIL ではない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "rain_auto_notify",
-          "label": "雨は AUTO_NOTIFY（承認待ちは完全成功にしない）",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_waiting_approval",
-          "label": "遅延は承認待ち",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_not_applied_early",
-          "label": "遅延承認前に行程を変えない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "reflection_one_question",
-          "label": "振り返りで確認質問が1問",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_not_saved_before_approval",
-          "label": "承認前に記憶を保存しない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_saved_after_approval",
-          "label": "承認後に記憶がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "next_plan_memory_influence",
-          "label": "次回行程に記憶の影響が見える",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "persist_backend",
-          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
-          "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
+          "verdict": "FAIL",
+          "detail": "FAIL OVER_BUDGET_FACILITIES,MUST_UNMET"
         }
       ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
+      "persistKind": "ok",
+      "providers": {
+        "persist": "firestore-emulator",
+        "llm": "LIVE",
+        "places": "MOCK",
+        "routes": "MOCK"
+      },
+      "countedAs": "EMULATOR",
+      "outcome": "FAILED",
       "ok": false
     },
     {
-      "git": "03b995f",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
+      "git": "e6ee626",
+      "runIds": [
+        "run_98bbdba7c019f1b5"
+      ],
+      "durationsMs": [
+        14301
+      ],
+      "costs": [
+        {
+          "llmJpy": 0,
+          "apiJpy": 0,
+          "mundaneCalls": 0,
+          "hardCalls": 0,
+          "unaccountedCalls": 0
+        }
+      ],
       "notes": [
-        "persist BLOCKED CREDENTIALS"
+        "providers persist=firestore-emulator llm=LIVE places=MOCK routes=MOCK",
+        "repairs=2",
+        "llmTraceUsd=0.002026 jpy=0.30086100000000005 rows=8",
+        "first status=WAITING_INPUT validation=FAIL items=2 runs=INITIAL_PLAN:WAITING_INPUT"
       ],
       "failures": [
-        "persist CREDENTIALS"
+        "spot count 2",
+        "initial validation FAIL: OVER_BUDGET_FACILITIES,MUST_UNMET",
+        "initial run WAITING_INPUT"
       ],
-      "repairCount": 0,
+      "repairCount": 2,
       "criteria": [
+        {
+          "id": "persist_backend",
+          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
+          "verdict": "PASS",
+          "detail": "Emulator で couples.limit(1) が成功"
+        },
         {
           "id": "spots_3_to_4",
           "label": "滞在は3〜4件",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "FAIL",
+          "detail": "items=2"
         },
         {
           "id": "locked_item",
           "label": "固定予定がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "it_bf03659ae80cc35f"
         },
         {
           "id": "no_closed",
           "label": "CLOSED の店を入れない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "no CLOSED"
         },
         {
           "id": "initial_not_fail",
           "label": "初回検証が FAIL ではない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "rain_auto_notify",
-          "label": "雨は AUTO_NOTIFY（承認待ちは完全成功にしない）",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_waiting_approval",
-          "label": "遅延は承認待ち",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_not_applied_early",
-          "label": "遅延承認前に行程を変えない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "reflection_one_question",
-          "label": "振り返りで確認質問が1問",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_not_saved_before_approval",
-          "label": "承認前に記憶を保存しない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_saved_after_approval",
-          "label": "承認後に記憶がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "next_plan_memory_influence",
-          "label": "次回行程に記憶の影響が見える",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "persist_backend",
-          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
-          "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
+          "verdict": "FAIL",
+          "detail": "FAIL OVER_BUDGET_FACILITIES,MUST_UNMET"
         }
       ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
+      "persistKind": "ok",
+      "providers": {
+        "persist": "firestore-emulator",
+        "llm": "LIVE",
+        "places": "MOCK",
+        "routes": "MOCK"
+      },
+      "countedAs": "EMULATOR",
+      "outcome": "FAILED",
       "ok": false
     },
     {
-      "git": "03b995f",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
+      "git": "e6ee626",
+      "runIds": [
+        "run_6bfb087fe17f84cf"
+      ],
+      "durationsMs": [
+        15858
+      ],
+      "costs": [
+        {
+          "llmJpy": 0,
+          "apiJpy": 0,
+          "mundaneCalls": 0,
+          "hardCalls": 0,
+          "unaccountedCalls": 0
+        }
+      ],
       "notes": [
-        "persist BLOCKED CREDENTIALS"
+        "providers persist=firestore-emulator llm=LIVE places=MOCK routes=MOCK",
+        "repairs=2",
+        "llmTraceUsd=0.002348 jpy=0.34867800000000004 rows=8",
+        "first status=WAITING_INPUT validation=FAIL items=3 runs=INITIAL_PLAN:WAITING_INPUT"
       ],
       "failures": [
-        "persist CREDENTIALS"
+        "initial validation FAIL: OVER_BUDGET_FACILITIES,MUST_UNMET",
+        "initial run WAITING_INPUT"
       ],
-      "repairCount": 0,
+      "repairCount": 2,
       "criteria": [
+        {
+          "id": "persist_backend",
+          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
+          "verdict": "PASS",
+          "detail": "Emulator で couples.limit(1) が成功"
+        },
         {
           "id": "spots_3_to_4",
           "label": "滞在は3〜4件",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "items=3"
         },
         {
           "id": "locked_item",
           "label": "固定予定がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "it_823defe14d549f91"
         },
         {
           "id": "no_closed",
           "label": "CLOSED の店を入れない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
+          "verdict": "PASS",
+          "detail": "no CLOSED"
         },
         {
           "id": "initial_not_fail",
           "label": "初回検証が FAIL ではない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "rain_auto_notify",
-          "label": "雨は AUTO_NOTIFY（承認待ちは完全成功にしない）",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_waiting_approval",
-          "label": "遅延は承認待ち",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "delay_not_applied_early",
-          "label": "遅延承認前に行程を変えない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "reflection_one_question",
-          "label": "振り返りで確認質問が1問",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_not_saved_before_approval",
-          "label": "承認前に記憶を保存しない",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "memory_saved_after_approval",
-          "label": "承認後に記憶がある",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "next_plan_memory_influence",
-          "label": "次回行程に記憶の影響が見える",
-          "verdict": "BLOCKED",
-          "detail": "persist CREDENTIALS"
-        },
-        {
-          "id": "persist_backend",
-          "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
-          "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
+          "verdict": "FAIL",
+          "detail": "FAIL OVER_BUDGET_FACILITIES,MUST_UNMET"
         }
       ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
+      "persistKind": "ok",
+      "providers": {
+        "persist": "firestore-emulator",
+        "llm": "LIVE",
+        "places": "MOCK",
+        "routes": "MOCK"
+      },
+      "countedAs": "EMULATOR",
+      "outcome": "FAILED",
       "ok": false
     }
   ]

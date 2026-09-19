@@ -2,9 +2,26 @@
 
 最終更新: 2026-09-20
 
-このファイルは実 LLM・実外部 API の通し結果だけを「LIVE 成功」と書く。モック合格は別に記す。秘密値は書かない。未達は未達のまま書く。成功条件は緩めない。
+このファイルは実 LLM・実外部 API・本物 Firestore の通し結果だけを「LIVE 成功」と書く。Emulator 成功は別に記す。秘密値は書かない。未達は未達のまま書く。成功条件は緩めない。
 
-## v0.4 §6.1（実行 commit `03b995f`）
+## Emulator 5連（実行 commit `e6ee626`）
+
+Cloud Agent で `npm run persist:diagnose:emu` と `npm run demo:emu:five`。鍵なし。projectId `futari-log-dev`。
+
+| 項目 | 結果 |
+|---|---|
+| countedAs | **EMULATOR**（LIVE に数えない） |
+| persist | firestore-emulator。診断 ok。probe 書き込み・読み戻し・削除 **成功** |
+| llm | **LIVE**（OrcaRouter） |
+| places / routes | **MOCK** |
+| EMULATOR成功 | **0 / 5** |
+| LIVE 完全成功 | **0 / 5**（対象外） |
+| FAILED | **5 / 5**（初回検証 FAIL: OVER_BUDGET_FACILITIES, MUST_UNMET） |
+| persist | 5 本とも kind=ok。CREDENTIALS ではない |
+
+本番 Firestore へは接続していない。LIVE 5連はローカルのユーザー ADC で実行する。
+
+## v0.4 §6.1 LIVE（実行 commit `03b995f`）
 
 対象更新・トランザクション・カフェ補完削除のあと、同一設定で `npm run persist:diagnose` と `npm run demo:five`。
 
@@ -17,15 +34,14 @@
 | persist | 5 本とも **CREDENTIALS**。読み書き probe は未実施（ADC 取得前に停止） |
 | JSON フォールバック | なし |
 
-この実行中 VM には Runtime Secret が無い。`FIREBASE_SERVICE_ACCOUNT_JSON` をダッシュボードに保存したあと、**新しい Agent** で再実行する。手順: `docs/adc-cloud-agent.md`。
+この記録はプレースホルダ `GOOGLE_APPLICATION_CREDENTIALS` 当時の LIVE 試行。鍵ファイル必須は撤廃済み。Cloud Agent の確認は上の Emulator 5連。本物 Firestore の LIVE 5連はローカルのユーザー ADC（`docs/deploy.md`）。
 
-切り分け（`docs/reports/persist-diagnosis.json`）:
+当時の切り分け（歴史。いまの `persist-diagnosis.json` は Emulator）:
 
 | 項目 | 値 |
 |---|---|
-| 失敗した処理 | `open GOOGLE_APPLICATION_CREDENTIALS` |
+| 失敗した処理 | `open GOOGLE_APPLICATION_CREDENTIALS`（当時） |
 | 実エラー | `ENOENT: placeholder path, no such file` |
-| materialize | `placeholder` / materialized=false |
 | 権限不足 | 未到達 |
 | Firestore 未設定 | 未到達 |
 | コード | scopedWrites=true, approvalTransaction=true |
@@ -103,5 +119,6 @@
 
 - Named Router `orcarouter/futari-*` は `/v1/models` に無く作成できない
 - 東京の発表会場住所・最寄り駅は未提供。デモは名古屋駅 / 東京駅を設定切替
-- Firestore：認証情報の取得失敗（プレースホルダ ADC / ENOENT）。権限不足と未設定は未到達。切替と Repository は実装済み
+- Firestore LIVE：Cloud Agent ではユーザー ADC が無い。ここでの確認は Emulator（countedAs=EMULATOR）。LIVE 5連はローカル
+- Cloud Run デプロイ：設定と IAM/Secret 一覧は `docs/deploy.md`。この VM からはデプロイしていない
 - 画面収録は手順のみ（`docs/demo-script.md`）

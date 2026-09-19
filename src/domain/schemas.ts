@@ -408,6 +408,7 @@ export const runSchema = z.object({
   leaseOwner: z.string().nullable(),
   leaseExpiresAt: z.string().nullable(),
   heartbeatAt: z.string().nullable(),
+  dispatchAttempts: z.number().int().nonnegative().default(0),
   trigger: z.string().nullable(),
   basePlanVersion: z.number().nullable(),
   resultPlanVersion: z.number().nullable(),

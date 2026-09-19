@@ -1,7 +1,17 @@
+export type ProvidersView = {
+  persist: "json" | "firestore-live" | "firestore-emulator";
+  llm: "LIVE" | "MOCK" | "BLOCKED";
+  places: "LIVE" | "MOCK" | "BLOCKED";
+  routes: "LIVE" | "MOCK" | "BLOCKED";
+};
+
 export type Me = {
   uid: string;
   coupleId: string | null;
   runtime: string;
+  countedAs?: "LIVE" | "EMULATOR" | "DEV";
+  providers?: ProvidersView;
+  persist?: { kind?: string; backend?: string; detail?: string };
   demoControls?: boolean;
   demoAreaName: string;
   demoDate: string;
@@ -21,6 +31,8 @@ export type Preference = {
 
 export type Snapshot = {
   runtime: string;
+  countedAs?: "LIVE" | "EMULATOR" | "DEV";
+  providers?: ProvidersView;
   couple: { id: string };
   session: {
     id: string;

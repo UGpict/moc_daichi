@@ -2,7 +2,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
-import { getEnv } from "../src/config/env";
+import { getEnv, providerModes, type PersistTarget } from "../src/config/env";
+import { applyEmulatorEnv } from "../src/server/auth/emulatorGuard";
 import { tokyoToday } from "../src/lib/time";
 import {
   blockedAll,
@@ -18,6 +19,9 @@ import { isPersistBlocked } from "../src/server/repositories/persistErrors";
 
 const BASE = process.env.DEMO_BASE_URL ?? "http://127.0.0.1:3000";
 const five = process.argv.includes("--five");
+if (process.argv.includes("--emu") || process.argv.includes("--emulator")) {
+  process.env.APP_RUNTIME = "EMULATOR";
+}
 
 type Report = {
   ok: boolean;
@@ -31,6 +35,8 @@ type Report = {
   repairCount: number;
   criteria: CriterionJudgment[];
   persistKind?: string;
+  countedAs?: "LIVE" | "EMULATOR" | "DEV";
+  providers?: ReturnType<typeof providerModes>;
 };
 
 function sleep(ms: number) {
@@ -115,6 +121,24 @@ async function api(path: string, init: RequestInit & { token?: string } = {}) {
 
 async function firebaseAnonymous(): Promise<{ uid: string; token: string }> {
   const env = getEnv();
+  if (env.profile === "EMULATOR") {
+    applyEmulatorEnv();
+    const host = env.authEmulatorHost ?? "127.0.0.1:9099";
+    const res = await fetch(
+      `http://${host}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key-for-emulator`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnSecureToken: true }),
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+    const json = (await res.json()) as { idToken?: string; localId?: string; error?: { message?: string } };
+    if (!res.ok || !json.idToken || !json.localId) {
+      throw new Error(`emulator anonymous failed: ${json.error?.message ?? res.status}`);
+    }
+    return { uid: json.localId, token: json.idToken };
+  }
   if (!env.firebaseApiKey) throw new Error("NEXT_PUBLIC_FIREBASE_API_KEY missing");
   const res = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(env.firebaseApiKey)}`,
@@ -145,9 +169,23 @@ async function waitRun(token: string, runId: string, timeoutMs = 120_000) {
   }
 }
 
+function persistScoreTarget(target: PersistTarget | undefined): "live" | "emulator" | "json" {
+  if (target === "firestore-emulator") return "emulator";
+  if (target === "json") return "json";
+  return "live";
+}
+
 function reportOf(partial: Omit<Report, "ok" | "outcome">): Report {
-  const outcome = scoreOutcome(partial.criteria);
-  return { ...partial, outcome, ok: outcome === "完全成功" };
+  const modes = partial.providers ?? providerModes();
+  const outcome = scoreOutcome(partial.criteria, persistScoreTarget(modes.persist));
+  const countedAs = modes.persist === "firestore-emulator" ? "EMULATOR" : modes.persist === "firestore-live" ? "LIVE" : "DEV";
+  return {
+    ...partial,
+    providers: modes,
+    countedAs,
+    outcome,
+    ok: outcome === "完全成功" || outcome === "EMULATOR成功",
+  };
 }
 
 async function onePass(): Promise<Report> {
@@ -162,17 +200,18 @@ async function onePass(): Promise<Report> {
   const git = existsSync(".git")
     ? execSync("git rev-parse --short HEAD").toString().trim()
     : undefined;
+  const modes = providerModes();
   const empty = () =>
-    reportOf({ git, runIds, durationsMs, costs, notes, failures, repairCount, criteria, persistKind });
+    reportOf({ git, runIds, durationsMs, costs, notes, failures, repairCount, criteria, persistKind, providers: modes });
 
   const env = getEnv();
   try {
   let token: string | undefined = process.env.DEMO_FIREBASE_ID_TOKEN;
   if (!token) {
-    if (env.profile === "LIVE") {
+    if (env.profile === "LIVE" || env.profile === "EMULATOR") {
       const fb = await firebaseAnonymous();
       token = fb.token;
-      notes.push(`firebase uid=${fb.uid}`);
+      notes.push(`firebase uid=${fb.uid} project=${env.firebaseProjectId}`);
     } else {
       const auth = await fetch(`${BASE}/api/auth/anonymous`, { method: "POST" });
       const setCookie = auth.headers.get("set-cookie") ?? "";
@@ -186,10 +225,13 @@ async function onePass(): Promise<Report> {
   if (!token) throw new Error("no token");
   const me = await api("/api/me", { token });
   persistKind = String(me.persist?.kind ?? (env.persistBackend === "firestore" ? "unknown" : "ok"));
+  notes.push(`providers persist=${modes.persist} llm=${modes.llm} places=${modes.places} routes=${modes.routes}`);
   if (persistKind === "ok" && env.profile === "LIVE" && env.persistBackend === "firestore") {
-    criteria.push(judgment("persist_backend", "PASS", me.persist?.detail ?? "Firestore"));
-  } else if (env.profile !== "LIVE") {
-    criteria.push(judgment("persist_backend", "PASS", `DEV/json (${persistKind})`));
+    criteria.push(judgment("persist_backend", "PASS", me.persist?.detail ?? "Firestore LIVE"));
+  } else if (persistKind === "ok" && env.profile === "EMULATOR") {
+    criteria.push(judgment("persist_backend", "PASS", me.persist?.detail ?? "Firestore Emulator（本番ではない）"));
+  } else if (env.profile === "DEV") {
+    criteria.push(judgment("persist_backend", "PASS", `DEV/json (${persistKind})。LIVE 成功には数えない`));
   } else if (
     persistKind === "CREDENTIALS" ||
     persistKind === "PERMISSION" ||
@@ -205,9 +247,9 @@ async function onePass(): Promise<Report> {
       ),
     );
   } else {
-    criteria.push(judgment("persist_backend", "FAIL", `LIVE persist kind=${persistKind} backend=${me.persist?.backend}`));
+    criteria.push(judgment("persist_backend", "FAIL", `${env.profile} persist kind=${persistKind} backend=${me.persist?.backend}`));
   }
-  if (env.profile === "LIVE" && persistKind !== "ok") {
+  if ((env.profile === "LIVE" || env.profile === "EMULATOR") && persistKind !== "ok") {
     notes.push(`persist BLOCKED ${persistKind}`);
     criteria.splice(0, criteria.length, ...blockedAll(`persist ${persistKind}`, criteria.find((c) => c.id === "persist_backend")));
     failures.push(`persist ${persistKind}`);
@@ -569,31 +611,33 @@ async function onePass(): Promise<Report> {
 async function main() {
   let child: ChildProcess | null = null;
   try {
+    if ((process.env.APP_RUNTIME ?? "").toUpperCase() === "EMULATOR") applyEmulatorEnv();
     const env = getEnv();
     process.env.ENABLE_DEMO_CONTROLS ??= "true";
     process.env.DEMO_DATE ??= env.demoDate;
-    if (env.profile === "LIVE") {
+    console.log(JSON.stringify({ profile: env.profile, providers: providerModes(), countedAs: env.profile }));
+    if (env.profile === "LIVE" || env.profile === "EMULATOR") {
       const today = tokyoToday();
       if ((process.env.DEMO_DATE ?? env.demoDate) < today) {
         process.env.DEMO_DATE = today;
         console.log(JSON.stringify({ demoDateAdjustedToTokyoToday: today }));
       }
     }
-    if (env.profile === "LIVE") {
-      const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-      if (credPath && !existsSync(credPath)) {
-        delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        console.log(JSON.stringify({ skippedMissingAdc: true }));
-      }
+    if (env.profile === "EMULATOR") {
+      applyEmulatorEnv();
+      const { ensureEmulator } = await import("./ensure-emulator");
+      await ensureEmulator();
+    }
+    if (env.profile === "LIVE" || env.profile === "EMULATOR") {
       const fb = await firebaseAnonymous();
       process.env.DEMO_FIREBASE_ID_TOKEN = fb.token;
       process.env.DEMO_ALLOWED_UIDS = fb.uid;
       process.env.ENABLE_DEMO_CONTROLS = "true";
-      console.log(JSON.stringify({ firebaseAnonymous: true, uidPrefix: fb.uid.slice(0, 6) }));
+      console.log(JSON.stringify({ firebaseAnonymous: true, uidPrefix: fb.uid.slice(0, 6), projectId: env.firebaseProjectId }));
       await freePort();
     }
     const maybe = await fetch(BASE).then(() => null).catch(() => "start");
-    if (maybe === "start" || env.profile === "LIVE") {
+    if (maybe === "start" || env.profile === "LIVE" || env.profile === "EMULATOR") {
       child = spawn("npx", ["tsx", "scripts/dev.ts"], {
         stdio: "inherit",
         env: process.env,
@@ -617,8 +661,11 @@ async function main() {
           at: new Date().toISOString(),
           spec: "v0.4 §6.1",
           completeSuccess: reports.filter((r) => r.outcome === "完全成功").length,
+          emulatorSuccess: reports.filter((r) => r.outcome === "EMULATOR成功").length,
+          countedAs: reports.map((r) => r.countedAs),
+          providers: reports[0]?.providers ?? providerModes(),
           outcomes: reports.map((r) => r.outcome),
-          criteria: reports.map((r, i) => ({ n: i + 1, outcome: r.outcome, persistKind: r.persistKind, criteria: r.criteria })),
+          criteria: reports.map((r, i) => ({ n: i + 1, outcome: r.outcome, persistKind: r.persistKind, countedAs: r.countedAs, providers: r.providers, criteria: r.criteria })),
         },
         null,
         2,
@@ -632,6 +679,9 @@ async function main() {
           file: out,
           ok: reports.every((r) => r.ok),
           count: reports.length,
+          liveSuccess: reports.filter((r) => r.outcome === "完全成功").length,
+          emulatorSuccess: reports.filter((r) => r.outcome === "EMULATOR成功").length,
+          providers: reports[0]?.providers ?? providerModes(),
           outcomes: reports.map((r) => r.outcome),
           totalRepairs,
           last,

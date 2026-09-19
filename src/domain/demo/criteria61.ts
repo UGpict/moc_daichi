@@ -3,8 +3,9 @@
 export const CRITERION_VERDICTS = ["PASS", "FAIL", "BLOCKED", "PARTIAL"] as const;
 export type CriterionVerdict = (typeof CRITERION_VERDICTS)[number];
 
-export const RUN_OUTCOMES = ["完全成功", "部分成功", "FAILED", "BLOCKED"] as const;
+export const RUN_OUTCOMES = ["完全成功", "EMULATOR成功", "部分成功", "FAILED", "BLOCKED"] as const;
 export type RunOutcome = (typeof RUN_OUTCOMES)[number];
+export type PersistScoreTarget = "live" | "emulator" | "json";
 
 export const CRITERION_IDS = [
   "spots_3_to_4",
@@ -48,9 +49,13 @@ export function judgment(id: CriterionId, verdict: CriterionVerdict, detail: str
   return { id, label: CRITERION_LABELS[id], verdict, detail };
 }
 
-export function scoreOutcome(criteria: CriterionJudgment[]): RunOutcome {
+export function scoreOutcome(criteria: CriterionJudgment[], persist: PersistScoreTarget = "live"): RunOutcome {
   if (criteria.some((c) => c.verdict === "FAIL")) return "FAILED";
-  if (criteria.every((c) => c.verdict === "PASS")) return "完全成功";
+  if (criteria.every((c) => c.verdict === "PASS")) {
+    if (persist === "emulator") return "EMULATOR成功";
+    if (persist === "live") return "完全成功";
+    return "部分成功";
+  }
   if (criteria.every((c) => c.verdict === "BLOCKED")) return "BLOCKED";
   if (criteria.some((c) => c.verdict === "PASS") && criteria.every((c) => c.verdict !== "FAIL")) {
     return "部分成功";
