@@ -1,21 +1,21 @@
 {
-  "at": "2026-09-19T12:46:19.232Z",
+  "at": "2026-09-19T12:53:28.510Z",
   "reports": [
     {
       "ok": true,
-      "git": "5f6fa68",
+      "git": "7e5d912",
       "runIds": [
-        "run_cb0c32dc430c2445",
-        "run_5b0eb5d95044204b",
-        "run_d3587df9437b919e",
-        "run_7dad96519e85027d",
-        "run_d2af3d4c312a17f4"
+        "run_1aae9e737fc7119d",
+        "run_9e04f866dd870b1e",
+        "run_42e4057d7a61eebe",
+        "run_38a111be0efd60c4",
+        "run_b6d70a0363b1b47c"
       ],
       "durationsMs": [
-        448,
-        841,
-        583,
-        531
+        1155,
+        735,
+        1092,
+        898
       ],
       "costs": [
         {
@@ -35,51 +35,19 @@
     },
     {
       "ok": true,
-      "git": "5f6fa68",
+      "git": "7e5d912",
       "runIds": [
-        "run_9101a46d1fd91c5b",
-        "run_b870b5345e2d198e",
-        "run_fd96cbc31a5f5515",
-        "run_7d14793569e3c6e8",
-        "run_bcbc864d93ababc0"
+        "run_47da41d2e8ada98c",
+        "run_adf60de5431c590f",
+        "run_4edaf329b48de549",
+        "run_54203d112af6bf98",
+        "run_53ffda9160eb99ae"
       ],
       "durationsMs": [
-        407,
-        464,
-        609,
-        416
-      ],
-      "costs": [
-        {
-          "llmJpy": 0,
-          "apiJpy": 0,
-          "mundaneCalls": 0,
-          "hardCalls": 1,
-          "unaccountedCalls": 0
-        }
-      ],
-      "notes": [
-        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain APPROVAL",
-        "memory influence DURATION,DURATION,REST_INSERT"
-      ],
-      "failures": []
-    },
-    {
-      "ok": true,
-      "git": "5f6fa68",
-      "runIds": [
-        "run_8a0cb0684ebe7877",
-        "run_cbd732f17e976519",
-        "run_18391a36d360a1a6",
-        "run_fe3d006d2d214347",
-        "run_e111d2653fd6142e"
-      ],
-      "durationsMs": [
-        476,
-        336,
-        456,
-        349
+        732,
+        821,
+        1027,
+        915
       ],
       "costs": [
         {
@@ -99,19 +67,19 @@
     },
     {
       "ok": true,
-      "git": "5f6fa68",
+      "git": "7e5d912",
       "runIds": [
-        "run_8ad5acec7c2f913d",
-        "run_62e7d7f9709828d0",
-        "run_2557ee74afeb1409",
-        "run_d4d9525d89f9f342",
-        "run_adcdef399fea4477"
+        "run_2e8e74d46622dc70",
+        "run_f7f7364146506dbb",
+        "run_e6f2ee269db6b473",
+        "run_cf1246b1434f6c25",
+        "run_af81b972624c5127"
       ],
       "durationsMs": [
-        532,
-        478,
-        719,
-        548
+        652,
+        1147,
+        1108,
+        974
       ],
       "costs": [
         {
@@ -124,26 +92,58 @@
       ],
       "notes": [
         "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain APPROVAL",
+        "rain AUTO_NOTIFY",
         "memory influence DURATION,DURATION,REST_INSERT"
       ],
       "failures": []
     },
     {
       "ok": true,
-      "git": "5f6fa68",
+      "git": "7e5d912",
       "runIds": [
-        "run_c32878462da700fb",
-        "run_10c90b27766cd214",
-        "run_494fb8369e672a44",
-        "run_5ab5ee0c12bfecd4",
-        "run_fe90523e21268382"
+        "run_4706bde854995e9c",
+        "run_33978924183a517d",
+        "run_c101051b5345cf19",
+        "run_2aa34df58130d376",
+        "run_06e04fcd81f01a56"
       ],
       "durationsMs": [
-        753,
-        538,
-        793,
-        611
+        680,
+        925,
+        1197,
+        899
+      ],
+      "costs": [
+        {
+          "llmJpy": 0,
+          "apiJpy": 0,
+          "mundaneCalls": 0,
+          "hardCalls": 1,
+          "unaccountedCalls": 0
+        }
+      ],
+      "notes": [
+        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
+        "rain AUTO_NOTIFY",
+        "memory influence DURATION,DURATION,REST_INSERT"
+      ],
+      "failures": []
+    },
+    {
+      "ok": true,
+      "git": "7e5d912",
+      "runIds": [
+        "run_82abfa707397e4b8",
+        "run_8b2e3daa133c1225",
+        "run_8e7ecb670adc0534",
+        "run_a7713061ad6ebd39",
+        "run_435312d57df1b000"
+      ],
+      "durationsMs": [
+        748,
+        874,
+        1163,
+        776
       ],
       "costs": [
         {
