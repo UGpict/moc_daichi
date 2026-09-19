@@ -62,8 +62,11 @@ export function hydrateDemoStore() {
   if (hydrated) {
     return;
   }
-  const stored = loadDemoState();
-  snapshot = stored ?? createInitialDemoState();
+  try {
+    snapshot = loadDemoState() ?? createInitialDemoState();
+  } catch {
+    snapshot = createInitialDemoState();
+  }
   hydrated = true;
   emit();
 }
@@ -84,6 +87,7 @@ export function resetDemoStore() {
 }
 
 export function startPrepStore() {
+  hydrated = true;
   commit({ ...createPrepStartState(), autoPlay: false, nextAutoAt: null });
 }
 
@@ -91,6 +95,7 @@ export function startProcedureStore(fromCurrent = false) {
   const next = fromCurrent
     ? beginProcedureFromPrep(snapshot)
     : createProcedureStartState();
+  hydrated = true;
   commit({ ...next, autoPlay: false, nextAutoAt: null });
 }
 

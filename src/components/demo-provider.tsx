@@ -26,7 +26,7 @@ import {
   subscribeDemoStore,
   triggerDemoEvent,
 } from "@/lib/demo-store";
-import { dueExternalEvent, getNextAutoEvent } from "@/lib/events";
+import { getNextAutoEvent } from "@/lib/events";
 import { REPLY_DELAY_MS } from "@/lib/sample-data";
 import type { CostConditions, DemoEventId, DemoState, UserActionId } from "@/lib/types";
 
@@ -64,13 +64,15 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!ready) {
-      return;
+    if (state.inquiryStatus === "awaiting_first_reply") {
+      const wait = Math.max(0, (state.firstReplyDueAt ?? Date.now()) - Date.now());
+      const timer = window.setTimeout(() => triggerDemoEvent("receive_first_reply"), wait);
+      return () => window.clearTimeout(timer);
     }
 
-    const due = dueExternalEvent(state);
-    if (due) {
-      const timer = window.setTimeout(() => triggerDemoEvent(due), 0);
+    if (state.inquiryStatus === "awaiting_followup_reply") {
+      const wait = Math.max(0, (state.followupReplyDueAt ?? Date.now()) - Date.now());
+      const timer = window.setTimeout(() => triggerDemoEvent("receive_followup_reply"), wait);
       return () => window.clearTimeout(timer);
     }
 
@@ -93,7 +95,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     }, wait);
     return () => window.clearTimeout(timer);
   }, [
-    ready,
     state,
     state.autoPlay,
     state.nextAutoAt,
@@ -177,10 +178,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 }
 
 export function DemoReady({ children }: { children: ReactNode }) {
-  const { ready } = useDemo();
-  if (!ready) {
-    return <p className="text-base text-ink-soft">準備内容を読み込んでいます…</p>;
-  }
+  useDemo();
   return children;
 }
 

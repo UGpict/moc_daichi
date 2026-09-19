@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StatusLabel } from "@/components/status-label";
 import { useDemo } from "@/components/demo-provider";
 import {
@@ -35,6 +35,12 @@ export default function ProcedurePage() {
   const [evidence, setEvidence] = useState<EvidenceId | null>(null);
   const breakdown = calculateReferenceCost(state.conditions);
   const inProcedure = state.track === "procedure";
+
+  useEffect(() => {
+    if (state.track !== "procedure") {
+      startProcedure(state.inquiryStatus === "answers_confirmed");
+    }
+  }, [state.track, state.inquiryStatus, startProcedure]);
 
   if (!inProcedure) {
     return (
@@ -304,7 +310,7 @@ export default function ProcedurePage() {
           </p>
         ) : null}
         <p className="mt-2 text-sm text-ink-soft">
-          「火葬実施済み」「葬儀完了」とは表示しません。
+          この体験は許可証の受領と引渡しの確認までです。実施や式の完了は扱いません。
         </p>
         <EvidenceButton id="permit" onOpen={setEvidence} />
       </Card>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useDemo } from "@/components/demo-provider";
 import { ShirubeAvatar } from "@/components/shirube-avatar";
 
@@ -16,14 +16,8 @@ const titles: Record<string, string> = {
 
 export function DemoHeader() {
   const pathname = usePathname();
-  const router = useRouter();
   const { resetDemo } = useDemo();
   const title = titles[pathname] ?? "SougiAgent";
-
-  function handleReset() {
-    resetDemo();
-    router.push("/");
-  }
 
   return (
     <header className="border-b border-line bg-card">
@@ -38,14 +32,14 @@ export function DemoHeader() {
         <p className="hidden min-w-0 truncate text-sm text-ink-soft sm:block">
           {title}
         </p>
-        <button
-          type="button"
-          onClick={handleReset}
+        <Link
+          href="/"
+          onClick={resetDemo}
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-2 text-sm font-medium text-ink-soft underline-offset-2 hover:text-forest hover:underline"
         >
           <span className="sm:hidden">やり直す</span>
           <span className="hidden sm:inline">最初からやり直す</span>
-        </button>
+        </Link>
       </div>
     </header>
   );
