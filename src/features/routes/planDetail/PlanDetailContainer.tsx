@@ -16,9 +16,9 @@ import type { Snapshot } from "@/lib/types";
 const PROGRESS_LABEL: Record<string, string> = {
   PENDING: "準備",
   RUNNING: "実行中",
+  CACHE_HIT: "今日の候補",
   TOOL_STARTED: "ツール開始",
   HTTP_ATTEMPT: "外部取得",
-  CACHE_HIT: "キャッシュ",
   TOOL_COMPLETED: "取得完了",
   MODEL_SELECTED: "モデル選択",
   PLAN_APPLIED: "行程を作成",
@@ -86,7 +86,7 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
         {actionError ? <p className="text-sm text-rose">{actionError}</p> : null}
         {generating ? (
           <Card className="bg-paper-deep">
-            <p className="text-sm">生成中です。実イベントだけを表示します。</p>
+            <p className="text-sm">行程を組み立てています。朝の一回取得があればそれを使い、都度探している演出ではありません。</p>
             <ol className="mt-2 space-y-1 text-sm">
               {data.events.slice(-6).map((e) => (
                 <li key={e.eventId}>{PROGRESS_LABEL[e.type] ?? e.type}: {e.summary}</li>

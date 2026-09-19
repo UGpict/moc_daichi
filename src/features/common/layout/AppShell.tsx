@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const NAV = [
-  { href: "/plan/new", label: "つくる", icon: PlusCircle, match: (p: string) => p.startsWith("/plan/new") || p.startsWith("/onboarding") },
+  { href: "/today", label: "今日", icon: PlusCircle, match: (p: string) => p.startsWith("/today") || p.startsWith("/plan/new") || p.startsWith("/onboarding") },
   { href: "/plans", label: "プラン", icon: Map, match: (p: string) => p === "/plans" || (p.startsWith("/plan/") && !p.startsWith("/plan/new")) },
   { href: "/memory", label: "ふたりのメモ", icon: BookHeart, match: (p: string) => p.startsWith("/memory") },
 ] as const;

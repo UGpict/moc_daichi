@@ -76,6 +76,10 @@ export function formatTokyo(iso: string): string {
   }).format(new Date(iso));
 }
 
+export function tokyoToday(): string {
+  return toTokyoParts(realNowIso()).date;
+}
+
 export function formatTokyoHm(iso: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
     timeZone: TIME_ZONE,

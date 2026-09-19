@@ -127,6 +127,47 @@ export async function searchSpots(
   return result;
 }
 
+export async function searchHappenings(
+  ctx: ProviderCtx,
+  args: { area: { lat: number; lng: number; name: string }; query: string; radiusMeters: number },
+): Promise<{ spots: Spot[]; evidence: Evidence[] }> {
+  const env = getEnv();
+  const key = `happening:${args.area.lat}:${args.area.lng}:${args.query}:${args.radiusMeters}`;
+  const cached = cacheGet<{ spots: Spot[]; evidence: Evidence[] }>(ctx, key, CACHE_TTL_MS.spotBasics);
+  if (cached) {
+    ctx.onHttp({
+      provider: env.runtime === "LIVE" ? "places-text" : "mock-places",
+      cacheHit: true,
+      attempt: ctx.httpAttempts,
+    });
+    return cached;
+  }
+  if (env.runtime === "LIVE" && env.googleMapsApiKey) {
+    const result = await counted(ctx, "places-text", () => liveSearchText(env.googleMapsApiKey!, args));
+    cacheSet(ctx, key, result);
+    return result;
+  }
+  const result = await counted(ctx, "mock-places", async () => {
+    const found = searchCatalog(/展|催/.test(args.query) ? "展示" : args.query).slice(0, 8);
+    return {
+      spots: found.map(toSpot),
+      evidence: [
+        evidence({
+          kind: "API",
+          provider: "mock-places",
+          sourceRef: args.query,
+          sourceField: "searchText",
+          fetchedAt: realNowIso(),
+          validFor: null,
+          note: "モックの催し検索。公式の開催カレンダーではない",
+        }),
+      ],
+    };
+  });
+  cacheSet(ctx, key, result);
+  return result;
+}
+
 export async function getSpotDetails(
   ctx: ProviderCtx,
   args: { spotId: string },
@@ -468,6 +509,77 @@ async function liveSearch(
   };
 }
 
+async function liveSearchText(
+  apiKey: string,
+  args: { area: { lat: number; lng: number; name: string }; query: string; radiusMeters: number },
+): Promise<{ spots: Spot[]; evidence: Evidence[] }> {
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": PLACES_FIELD_MASK_SEARCH,
+    },
+    body: JSON.stringify({
+      textQuery: `${args.area.name} ${args.query}`.trim(),
+      languageCode: "ja",
+      maxResultCount: 10,
+      locationBias: {
+        circle: {
+          center: { latitude: args.area.lat, longitude: args.area.lng },
+          radius: args.radiusMeters,
+        },
+      },
+    }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    throw new Error(`places searchText ${res.status}`);
+  }
+  const data = (await res.json()) as {
+    places?: {
+      id: string;
+      displayName?: { text: string };
+      location?: { latitude: number; longitude: number };
+      types?: string[];
+      primaryType?: string;
+      photos?: { name?: string; authorAttributions?: { displayName?: string }[] }[];
+    }[];
+  };
+  const fetchedAt = realNowIso();
+  const spots: Spot[] = (data.places ?? []).map((p) => {
+    const photo = p.photos?.[0];
+    return {
+      id: p.id,
+      name: p.displayName?.text ?? p.id,
+      lat: p.location?.latitude ?? 0,
+      lng: p.location?.longitude ?? 0,
+      categories: p.types ?? (p.primaryType ? [p.primaryType] : []),
+      environment: { value: null, evidenceIds: [] },
+      costForTwoJpy: { value: null, evidenceIds: [] },
+      restEase: { value: null, evidenceIds: [] },
+      standingBurden: { value: null, evidenceIds: [] },
+      officialUrl: null,
+      photoName: photo?.name ?? null,
+      photoAttribution: photo?.authorAttributions?.[0]?.displayName ?? null,
+    };
+  });
+  return {
+    spots,
+    evidence: [
+      evidence({
+        kind: "API",
+        provider: "places-text",
+        sourceRef: "places:searchText",
+        sourceField: "places",
+        fetchedAt,
+        validFor: null,
+        note: `Places Text Search「${args.query}」。開催中と公式確認したわけではない`,
+      }),
+    ],
+  };
+}
+
 async function liveDetails(apiKey: string, spotId: string): Promise<{ spot: Spot | null; evidence: Evidence[] }> {
   const res = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(spotId)}`, {
     headers: {
@@ -590,6 +702,7 @@ function categoryToPlaceTypes(category: string): string[] {
   if (/散歩|walk|park|屋外/.test(category)) return ["park", "tourist_attraction"];
   if (/展示|museum|art|美術館/.test(category)) return ["art_gallery", "museum"];
   if (/甘い|cafe|スイーツ/.test(category)) return ["cafe", "bakery"];
+  if (/催し|イベント|event/.test(category)) return ["event_venue", "performing_arts_theater", "tourist_attraction"];
   return ["tourist_attraction"];
 }
 

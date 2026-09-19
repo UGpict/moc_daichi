@@ -13,7 +13,7 @@ export function LandingContainer() {
   async function start() {
     const next = me ?? (await signInGuest());
     const onboarded = window.localStorage.getItem(`futari.onboarded.${next.uid}`);
-    router.push(onboarded ? "/plans" : "/onboarding");
+    router.push(onboarded ? "/today" : "/onboarding");
   }
 
   return (
@@ -21,7 +21,7 @@ export function LandingContainer() {
       <p className="text-sm tracking-widest text-rose">FUTARI LOG</p>
       <h1 className="mt-2 text-3xl font-semibold">ふたりログ</h1>
       <p className="mt-3 text-ink-soft">
-        二人の希望を調整し、予定が崩れたら組み直し、確かめた記憶を次のデートに活かす。相手はこのアプリを使いません。
+        一日一回、このエリアの催しや散歩先をまとめて取っておく。デートを作るときはその候補から選ぶので、準備中で待たせない。相手はこのアプリを使いません。
       </p>
       {me ? <div className="mt-4"><ModeBanner runtime={me.runtime} /></div> : null}
       <Button className="mt-8 w-full py-3" disabled={loading} onClick={() => void start()}>
@@ -29,8 +29,8 @@ export function LandingContainer() {
         ゲストではじめる
       </Button>
       {me?.coupleId ? (
-        <Button variant="secondary" className="mt-3 w-full" onClick={() => router.push("/plans")}>
-          プランを見る
+        <Button variant="secondary" className="mt-3 w-full" onClick={() => router.push("/today")}>
+          今日の候補を見る
         </Button>
       ) : null}
     </main>

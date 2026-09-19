@@ -32,6 +32,7 @@ const input: PlanningInput = {
   areaLat: 35.17,
   areaLng: 136.88,
   radiusMeters: 2500,
+  pickedSpotIds: [],
 };
 
 const spots: Record<string, Spot> = {

@@ -1,6 +1,7 @@
 import { getEnv } from "@/config/env";
 import { searchSpots, type ProviderCtx } from "@/server/providers";
 import { parsePlacesPhotoName, vibeFromCategories } from "@/server/places/photoName";
+import { readTodayDigest } from "@/server/providers/dailyDigest";
 
 export type PreferenceCard = {
   id: string;
@@ -36,6 +37,36 @@ export async function listPreferenceCards(args: {
   areaName: string;
 }): Promise<{ cards: PreferenceCard[]; note: string; photoMode: "PLACES" | "NONE" }> {
   const env = getEnv();
+  const digest = await readTodayDigest();
+  if (digest?.status === "READY" && digest.items.length) {
+    const cards = digest.items
+      .map((item) => {
+        const s = digest.spots[item.spotId];
+        if (!s) return null;
+        const photoName = parsePlacesPhotoName(s.photoName);
+        const vibe = item.vibe || vibeFromCategories(s.categories, args.subject);
+        if (args.subject === "PARTNER" && !/甘|カフェ|のんびり|催し|展示/.test(vibe)) return null;
+        return {
+          id: s.id,
+          name: s.name,
+          vibe,
+          categories: s.categories,
+          photoName,
+          attribution: s.photoAttribution,
+          photoSource: photoName && !photoName.startsWith("mock:") ? ("PLACES" as const) : ("NONE" as const),
+        };
+      })
+      .filter((c): c is PreferenceCard => Boolean(c))
+      .slice(0, 8);
+    if (cards.length) {
+      const hasPlacesPhoto = cards.some((c) => c.photoSource === "PLACES");
+      return {
+        cards,
+        photoMode: hasPlacesPhoto ? "PLACES" : "NONE",
+        note: `今日の一回取得（${digest.fetchedAt}）を使います。${digest.note}`,
+      };
+    }
+  }
   const queries = QUERIES[args.subject];
   const results = await Promise.all(
     queries.map((q) =>

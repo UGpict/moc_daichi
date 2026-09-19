@@ -11,7 +11,11 @@ import type { Me } from "@/lib/types";
 
 function initialForm(me: Me) {
   const draftRaw = typeof window === "undefined" ? null : window.sessionStorage.getItem(`futari.draft.${me.uid}`);
+  const pickRaw = typeof window === "undefined" ? null : window.sessionStorage.getItem(`futari.picks.${me.uid}`);
   const parsed = draftRaw ? (JSON.parse(draftRaw) as { self?: string; partner?: string; partnerSource?: string }) : {};
+  const picks = pickRaw
+    ? (JSON.parse(pickRaw) as { ids?: string[]; names?: string[]; vibes?: string[] })
+    : {};
   return {
     dateTokyo: me.demoDate,
     startTime: "13:00",
@@ -21,11 +25,13 @@ function initialForm(me: Me) {
     meals: "8000",
     facilities: "4000",
     transit: "2000",
-    self: parsed.self ?? "散歩と展示",
+    self: parsed.self ?? (picks.vibes?.length ? picks.vibes.join("・") : "散歩と展示"),
     partner: parsed.partner ?? "甘いもの",
     partnerSource: parsed.partnerSource ?? "PARTNER_STATEMENT_REPORTED",
-    locked: true,
+    locked: !(picks.ids && picks.ids.length >= 3),
     auto: false,
+    pickedIds: picks.ids ?? [],
+    pickedNames: picks.names ?? [],
   };
 }
 
@@ -37,10 +43,11 @@ export function PlanCreateContainer() {
 
 function PlanCreateForm({ me }: { me: Me }) {
   const router = useRouter();
+  const [form, setForm] = useState(() => initialForm(me));
+  const fromPicks = form.pickedIds.length >= 3;
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState(() => initialForm(me));
 
   async function submit() {
     if (!me) return;
@@ -104,6 +111,7 @@ function PlanCreateForm({ me }: { me: Me }) {
           areaLat: me.demoLat,
           areaLng: me.demoLng,
           radiusMeters: 2500,
+          pickedSpotIds: form.pickedIds,
         }),
       });
       await api(`/api/sessions/${session.sessionId}/runs`, {
@@ -119,53 +127,61 @@ function PlanCreateForm({ me }: { me: Me }) {
     }
   }
 
+  const whenCard = (
+    <Card>
+      <h1 className="text-xl font-semibold">{fromPicks ? "時刻と予算" : "いつ・どこで"}</h1>
+      <label className="mt-3 block text-sm">
+        日付（Asia/Tokyo）
+        <input
+          type="date"
+          className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2"
+          value={form.dateTokyo}
+          onChange={(e) => setForm({ ...form, dateTokyo: e.target.value })}
+        />
+      </label>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <label className="text-sm">
+          開始
+          <input type="time" className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
+        </label>
+        <label className="text-sm">
+          終了
+          <input type="time" className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
+        </label>
+      </div>
+      <label className="mt-3 block text-sm">
+        集合（公共地点）
+        <input className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2" value={form.meetName} onChange={(e) => setForm({ ...form, meetName: e.target.value })} />
+      </label>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+        <label>
+          食事
+          <input className="mt-1 w-full rounded-xl border border-line bg-paper px-2 py-2" value={form.meals} onChange={(e) => setForm({ ...form, meals: e.target.value })} />
+        </label>
+        <label>
+          施設
+          <input className="mt-1 w-full rounded-xl border border-line bg-paper px-2 py-2" value={form.facilities} onChange={(e) => setForm({ ...form, facilities: e.target.value })} />
+        </label>
+        <label>
+          交通
+          <input className="mt-1 w-full rounded-xl border border-line bg-paper px-2 py-2" value={form.transit} onChange={(e) => setForm({ ...form, transit: e.target.value })} />
+        </label>
+      </div>
+    </Card>
+  );
+
   return (
     <div className="space-y-4">
       <ModeBanner runtime={me.runtime} />
-      <p className="text-sm text-ink-soft">条件 {step + 1} / 3 · デモ用プリセットはエリアと日付だけです。</p>
-      {step === 0 ? (
-        <Card>
-          <h1 className="text-xl font-semibold">いつ・どこで</h1>
-          <label className="mt-3 block text-sm">
-            日付（Asia/Tokyo）
-            <input
-              type="date"
-              className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2"
-              value={form.dateTokyo}
-              onChange={(e) => setForm({ ...form, dateTokyo: e.target.value })}
-            />
-          </label>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <label className="text-sm">
-              開始
-              <input type="time" className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-            </label>
-            <label className="text-sm">
-              終了
-              <input type="time" className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
-            </label>
-          </div>
-          <label className="mt-3 block text-sm">
-            集合（公共地点）
-            <input className="mt-1 w-full rounded-xl border border-line bg-paper px-3 py-2" value={form.meetName} onChange={(e) => setForm({ ...form, meetName: e.target.value })} />
-          </label>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
-            <label>
-              食事
-              <input className="mt-1 w-full rounded-xl border border-line bg-paper px-2 py-2" value={form.meals} onChange={(e) => setForm({ ...form, meals: e.target.value })} />
-            </label>
-            <label>
-              施設
-              <input className="mt-1 w-full rounded-xl border border-line bg-paper px-2 py-2" value={form.facilities} onChange={(e) => setForm({ ...form, facilities: e.target.value })} />
-            </label>
-            <label>
-              交通
-              <input className="mt-1 w-full rounded-xl border border-line bg-paper px-2 py-2" value={form.transit} onChange={(e) => setForm({ ...form, transit: e.target.value })} />
-            </label>
-          </div>
-        </Card>
-      ) : null}
-      {step === 1 ? (
+      {fromPicks ? (
+        <p className="text-sm text-ink-soft">
+          今日の候補から: {form.pickedNames.join("、")}。時刻と予算だけ確認すれば組み立てます。探し直しはしません。
+        </p>
+      ) : (
+        <p className="text-sm text-ink-soft">条件 {step + 1} / 3 · デモ用プリセットはエリアと日付だけです。</p>
+      )}
+      {fromPicks || step === 0 ? whenCard : null}
+      {!fromPicks && step === 1 ? (
         <Card>
           <h1 className="text-xl font-semibold">二人の希望</h1>
           <label className="mt-3 block text-sm">
@@ -178,7 +194,7 @@ function PlanCreateForm({ me }: { me: Me }) {
           </label>
         </Card>
       ) : null}
-      {step === 2 ? (
+      {!fromPicks && step === 2 ? (
         <Card>
           <h1 className="text-xl font-semibold">固定予定と自動変更</h1>
           <label className="mt-3 flex items-start gap-2 text-sm">
@@ -193,18 +209,18 @@ function PlanCreateForm({ me }: { me: Me }) {
       ) : null}
       {error ? <p className="text-sm text-rose">{error}</p> : null}
       <div className="flex gap-2">
-        {step > 0 ? (
+        {!fromPicks && step > 0 ? (
           <Button variant="secondary" onClick={() => setStep((s) => s - 1)}>
             戻る
           </Button>
         ) : null}
-        {step < 2 ? (
-          <Button className="flex-1" onClick={() => setStep((s) => s + 1)}>
-            次へ
+        {fromPicks || step >= 2 ? (
+          <Button className="flex-1" disabled={busy} onClick={() => void submit()}>
+            {busy ? "今日の候補から組み立てています…" : "プランをつくる"}
           </Button>
         ) : (
-          <Button className="flex-1" disabled={busy} onClick={() => void submit()}>
-            {busy ? "行程を組み立てています…" : "プランをつくる"}
+          <Button className="flex-1" onClick={() => setStep((s) => s + 1)}>
+            次へ
           </Button>
         )}
       </div>

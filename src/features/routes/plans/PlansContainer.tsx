@@ -64,8 +64,8 @@ export function PlansContainer() {
       ) : (
         shown.map((p) => <PlanCard key={p.id} plan={p} />)
       )}
-      <Button className="w-full" onClick={() => router.push("/plan/new")}>
-        プランをつくる
+      <Button className="w-full" onClick={() => router.push("/today")}>
+        今日の候補からつくる
       </Button>
     </div>
   );

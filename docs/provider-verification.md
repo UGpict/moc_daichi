@@ -28,7 +28,9 @@
   - 写真が無い候補は「写真未取得」とし、生成画像では埋めない
 - Details は `id,displayName,location,types,primaryType,websiteUri,googleMapsUri,regularOpeningHours,currentOpeningHours,priceLevel,priceRange,businessStatus`
 - `priceRange` が無い場合は円額を作らず UNKNOWN
-- 空席フィールドは提供されない
+- Text Search: `POST https://places.googleapis.com/v1/places:searchText`（催し・展覧会の日次取得）
+  - 開催中チケットの公式確認ではない。取得クエリと時刻を表示する
+- 日次ダイジェストは worker が Asia/Tokyo の日付で一日一回取得し、デート作成時は都度検索しない
 
 ## Google Routes API
 

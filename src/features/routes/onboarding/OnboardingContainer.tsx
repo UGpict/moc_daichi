@@ -40,7 +40,7 @@ export function OnboardingContainer() {
         );
       }
     }
-    router.push("/plan/new");
+    router.push("/today");
   }
 
   return (
