@@ -87,6 +87,8 @@ function toSpot(c: CatalogSpot): Spot {
       evidenceIds: c.standingBurden.evidenceIds.map((id) => id),
     },
     officialUrl: c.officialUrl,
+    photoName: c.photoName ?? null,
+    photoAttribution: c.photoAttribution ?? null,
   };
 }
 
@@ -429,21 +431,27 @@ async function liveSearch(
       types?: string[];
       primaryType?: string;
       googleMapsUri?: string;
+      photos?: { name?: string; authorAttributions?: { displayName?: string }[] }[];
     }[];
   };
   const fetchedAt = realNowIso();
-  const spots: Spot[] = (data.places ?? []).map((p) => ({
-    id: p.id,
-    name: p.displayName?.text ?? p.id,
-    lat: p.location?.latitude ?? 0,
-    lng: p.location?.longitude ?? 0,
-    categories: p.types ?? (p.primaryType ? [p.primaryType] : []),
-    environment: { value: null, evidenceIds: [] },
-    costForTwoJpy: { value: null, evidenceIds: [] },
-    restEase: { value: null, evidenceIds: [] },
-    standingBurden: { value: null, evidenceIds: [] },
-    officialUrl: null,
-  }));
+  const spots: Spot[] = (data.places ?? []).map((p) => {
+    const photo = p.photos?.[0];
+    return {
+      id: p.id,
+      name: p.displayName?.text ?? p.id,
+      lat: p.location?.latitude ?? 0,
+      lng: p.location?.longitude ?? 0,
+      categories: p.types ?? (p.primaryType ? [p.primaryType] : []),
+      environment: { value: null, evidenceIds: [] },
+      costForTwoJpy: { value: null, evidenceIds: [] },
+      restEase: { value: null, evidenceIds: [] },
+      standingBurden: { value: null, evidenceIds: [] },
+      officialUrl: null,
+      photoName: photo?.name ?? null,
+      photoAttribution: photo?.authorAttributions?.[0]?.displayName ?? null,
+    };
+  });
   return {
     spots,
     evidence: [
@@ -476,9 +484,11 @@ async function liveDetails(apiKey: string, spotId: string): Promise<{ spot: Spot
     types?: string[];
     websiteUri?: string;
     priceRange?: { startPrice?: { units?: string }; endPrice?: { units?: string } };
+    photos?: { name?: string; authorAttributions?: { displayName?: string }[] }[];
   };
   const fetchedAt = realNowIso();
   const envEst = estimateEnvironment(p.types ?? []);
+  const photo = p.photos?.[0];
   return {
     spot: {
       id: p.id,
@@ -491,6 +501,8 @@ async function liveDetails(apiKey: string, spotId: string): Promise<{ spot: Spot
       restEase: estimateRest(p.types ?? []),
       standingBurden: estimateStanding(p.types ?? []),
       officialUrl: p.websiteUri ?? null,
+      photoName: photo?.name ?? null,
+      photoAttribution: photo?.authorAttributions?.[0]?.displayName ?? null,
     },
     evidence: [
       evidence({

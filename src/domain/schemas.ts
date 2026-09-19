@@ -66,6 +66,8 @@ export const spotSchema = z.object({
   restEase: factSchema(restEaseSchema),
   standingBurden: factSchema(standingBurdenSchema),
   officialUrl: z.string().nullable(),
+  photoName: z.string().nullable().default(null),
+  photoAttribution: z.string().nullable().default(null),
 });
 export type Spot = z.infer<typeof spotSchema>;
 

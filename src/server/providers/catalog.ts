@@ -1,10 +1,12 @@
 import type { Spot, Evidence } from "@/domain/schemas";
 import { realNowIso } from "@/lib/time";
 
-export type CatalogSpot = Spot & {
+export type CatalogSpot = Omit<Spot, "photoName" | "photoAttribution"> & {
   types: string[];
   hours: { days: number[]; open: string; close: string }[];
   walkRestHint: string | null;
+  photoName?: string | null;
+  photoAttribution?: string | null;
 };
 
 function ev(id: string, field: string, note: string): Evidence {

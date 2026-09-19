@@ -79,6 +79,8 @@ export type Snapshot = {
       categories?: string[];
       environment: { value: string | null };
       costForTwoJpy: { value: { min: number; max: number } | null };
+      photoName?: string | null;
+      photoAttribution?: string | null;
     }
   >;
   runs: {
