@@ -46,3 +46,4 @@ docs/reports/*.json
 !docs/reports/.gitkeep
 !docs/reports/demo-live.json
 !docs/reports/demo-five.json
+!docs/reports/criteria-61.json

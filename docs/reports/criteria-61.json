@@ -1,19 +1,19 @@
 {
   "at": "2026-09-19T22:13:13.385Z",
   "spec": "v0.4 §6.1",
-  "reports": [
+  "completeSuccess": 0,
+  "outcomes": [
+    "BLOCKED",
+    "BLOCKED",
+    "BLOCKED",
+    "BLOCKED",
+    "BLOCKED"
+  ],
+  "criteria": [
     {
-      "git": "f29a275",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
-      "notes": [
-        "persist BLOCKED CREDENTIALS"
-      ],
-      "failures": [
-        "persist CREDENTIALS"
-      ],
-      "repairCount": 0,
+      "n": 1,
+      "outcome": "BLOCKED",
+      "persistKind": "CREDENTIALS",
       "criteria": [
         {
           "id": "spots_3_to_4",
@@ -87,23 +87,12 @@
           "verdict": "BLOCKED",
           "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
         }
-      ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
-      "ok": false
+      ]
     },
     {
-      "git": "f29a275",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
-      "notes": [
-        "persist BLOCKED CREDENTIALS"
-      ],
-      "failures": [
-        "persist CREDENTIALS"
-      ],
-      "repairCount": 0,
+      "n": 2,
+      "outcome": "BLOCKED",
+      "persistKind": "CREDENTIALS",
       "criteria": [
         {
           "id": "spots_3_to_4",
@@ -177,23 +166,12 @@
           "verdict": "BLOCKED",
           "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
         }
-      ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
-      "ok": false
+      ]
     },
     {
-      "git": "f29a275",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
-      "notes": [
-        "persist BLOCKED CREDENTIALS"
-      ],
-      "failures": [
-        "persist CREDENTIALS"
-      ],
-      "repairCount": 0,
+      "n": 3,
+      "outcome": "BLOCKED",
+      "persistKind": "CREDENTIALS",
       "criteria": [
         {
           "id": "spots_3_to_4",
@@ -267,23 +245,12 @@
           "verdict": "BLOCKED",
           "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
         }
-      ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
-      "ok": false
+      ]
     },
     {
-      "git": "f29a275",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
-      "notes": [
-        "persist BLOCKED CREDENTIALS"
-      ],
-      "failures": [
-        "persist CREDENTIALS"
-      ],
-      "repairCount": 0,
+      "n": 4,
+      "outcome": "BLOCKED",
+      "persistKind": "CREDENTIALS",
       "criteria": [
         {
           "id": "spots_3_to_4",
@@ -357,23 +324,12 @@
           "verdict": "BLOCKED",
           "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
         }
-      ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
-      "ok": false
+      ]
     },
     {
-      "git": "f29a275",
-      "runIds": [],
-      "durationsMs": [],
-      "costs": [],
-      "notes": [
-        "persist BLOCKED CREDENTIALS"
-      ],
-      "failures": [
-        "persist CREDENTIALS"
-      ],
-      "repairCount": 0,
+      "n": 5,
+      "outcome": "BLOCKED",
+      "persistKind": "CREDENTIALS",
       "criteria": [
         {
           "id": "spots_3_to_4",
@@ -447,10 +403,7 @@
           "verdict": "BLOCKED",
           "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
         }
-      ],
-      "persistKind": "CREDENTIALS",
-      "outcome": "BLOCKED",
-      "ok": false
+      ]
     }
   ]
 }
