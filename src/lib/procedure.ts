@@ -42,8 +42,8 @@ export function createProcedureStartState(
     },
     hasReviewedEstimate: true,
     hasViewedFamily: true,
-    deathCertificate: "received",
-    domicileStatus: "unknown",
+    deathCertificate: "unchecked",
+    domicileStatus: "reviewing_sample",
     scheduleStatus: "adjusting",
     originalCremationDate: CREMATION_FIRST_DATE,
     proposedCremationDate: CREMATION_FIRST_DATE,
@@ -62,6 +62,8 @@ export function createProcedureStartState(
     share: { ...DEFAULT_SHARE, sharedWithKenichi: true },
     familyJudgment: { ...DEFAULT_FAMILY_JUDGMENT },
     timePassed: true,
+    nameCheckStatus: "not_compared",
+    handoverHeard: false,
   };
 }
 
@@ -98,12 +100,17 @@ export function isDomicileConfirmed(state: DemoState): boolean {
   return state.domicileStatus === "staff_recorded";
 }
 
+export function isNameResolved(state: DemoState): boolean {
+  return state.nameCheckStatus === "result_received";
+}
+
 export function canSubmitForms(state: DemoState): boolean {
   return (
     state.track === "procedure" &&
     state.scheduleStatus === "confirmed" &&
     state.formStatus === "ready" &&
     isDomicileConfirmed(state) &&
+    isNameResolved(state) &&
     !state.caseInquiry.received
   );
 }

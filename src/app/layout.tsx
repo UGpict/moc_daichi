@@ -11,9 +11,9 @@ const notoSansJp = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "しるべ／SougiAgent｜葬儀の事前準備",
+  title: "しるべ／SougiAgent｜死亡後の確認と手続き",
   description:
-    "本人の話を聞いて希望を整理し、共有を許可された情報を家族に引き継ぐ体験版です。",
+    "本人が残した記録を手掛かりに、書類の不一致を関係者へ確認し、許可証の引渡しまで追う体験版です。",
 };
 
 export const viewport: Viewport = {

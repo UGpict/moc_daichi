@@ -61,11 +61,25 @@ export type DomicileStatus = (typeof DOMICILE_STATUSES)[number];
 export const DEATH_CERTIFICATE_STATUSES = ["unchecked", "received"] as const;
 export type DeathCertificateStatus = (typeof DEATH_CERTIFICATE_STATUSES)[number];
 
+export const NAME_CHECK_STATUSES = [
+  "not_compared",
+  "mismatch_found",
+  "awaiting_reply",
+  "will_handle",
+  "result_received",
+] as const;
+
+export type NameCheckStatus = (typeof NAME_CHECK_STATUSES)[number];
+
 export type EvidenceId =
   | "estimate"
   | "first_reply"
   | "followup_reply"
   | "schedule_offer"
+  | "death_certificate"
+  | "name_memo"
+  | "name_will_handle"
+  | "name_result"
   | "municipality_inquiry"
   | "staff_will_handle"
   | "staff_completed"
@@ -77,6 +91,8 @@ export const DEMO_EVENT_IDS = [
   "receive_followup_reply",
   "receive_schedule_offer",
   "receive_schedule_confirm",
+  "receive_name_will_handle",
+  "receive_name_result",
   "receive_domicile_consult_reply",
   "receive_domicile_recorded",
   "receive_forms_submitted",
@@ -94,6 +110,10 @@ export type DemoEventId = (typeof DEMO_EVENT_IDS)[number];
 export const USER_ACTION_IDS = [
   "approve_inquiry",
   "approve_followup",
+  "report_handover_has_cert",
+  "report_handover_none",
+  "provide_death_cert",
+  "approve_name_check",
   "choose_domicile_has_docs",
   "choose_domicile_unknown",
   "provide_domicile_sample",
@@ -206,7 +226,7 @@ export interface FamilyJudgment {
 }
 
 export interface DemoState {
-  version: 4;
+  version: 5;
   track: DemoTrack;
   inquiryStatus: InquiryStatus;
   conditions: CostConditions;
@@ -236,6 +256,8 @@ export interface DemoState {
   familyJudgment: FamilyJudgment;
   timePassed: boolean;
   messageSeq: number;
+  nameCheckStatus: NameCheckStatus;
+  handoverHeard: boolean;
 }
 
 export interface CostLine {

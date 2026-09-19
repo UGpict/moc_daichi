@@ -19,6 +19,7 @@ import type {
   FormStatus,
   InquiryStatus,
   MemoryKind,
+  NameCheckStatus,
   MemoryRecord,
   PermitFlags,
   ScheduleStatus,
@@ -36,13 +37,14 @@ import {
   DOMICILE_STATUSES,
   FORM_STATUSES,
   INQUIRY_STATUSES,
+  NAME_CHECK_STATUSES,
   SCHEDULE_STATUSES,
   STAY_DAY_OPTIONS,
   TALK_STEPS,
   TRANSPORT_KM_OPTIONS,
 } from "./types";
 
-export const STORAGE_KEY = "sougi-agent-demo-v4";
+export const STORAGE_KEY = "sougi-agent-demo-v5";
 
 const MEMORY_KINDS: MemoryKind[] = [
   "said",
@@ -179,7 +181,7 @@ export function parseDemoState(value: unknown): DemoState | null {
   }
 
   const raw = value as Partial<DemoState>;
-  if (raw.version !== 4 || !includes(INQUIRY_STATUSES, raw.inquiryStatus)) {
+  if (raw.version !== 5 || !includes(INQUIRY_STATUSES, raw.inquiryStatus)) {
     return null;
   }
 
@@ -219,9 +221,12 @@ export function parseDemoState(value: unknown): DemoState | null {
     raw.summaryDecision === "confirmed" || raw.summaryDecision === "deferred"
       ? raw.summaryDecision
       : "undecided";
+  const nameCheckStatus: NameCheckStatus = includes(NAME_CHECK_STATUSES, raw.nameCheckStatus)
+    ? raw.nameCheckStatus
+    : DEFAULT_DEMO_STATE.nameCheckStatus;
 
   return {
-    version: 4,
+    version: 5,
     track,
     inquiryStatus: raw.inquiryStatus as InquiryStatus,
     conditions: {
@@ -264,6 +269,8 @@ export function parseDemoState(value: unknown): DemoState | null {
     familyJudgment: parseFamilyJudgment(raw.familyJudgment),
     timePassed: Boolean(raw.timePassed),
     messageSeq: typeof raw.messageSeq === "number" ? raw.messageSeq : 1,
+    nameCheckStatus,
+    handoverHeard: Boolean(raw.handoverHeard),
   };
 }
 

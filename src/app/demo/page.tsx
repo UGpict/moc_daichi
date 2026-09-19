@@ -1,58 +1,43 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { TalkPanel } from "@/components/talk-panel";
+import { useEffect, useState } from "react";
+import { EvidenceDialog } from "@/components/evidence-dialog";
+import { FamilyNav } from "@/components/family-nav";
+import { ProcedureConcierge } from "@/components/procedure-concierge";
 import { useDemo } from "@/components/demo-provider";
-import { Notice, PrimaryLink, SecondaryLink } from "@/components/ui";
-import { conversationRoute } from "@/lib/conversation";
+import { Notice, PageTitle } from "@/components/ui";
+import { MUNICIPALITY } from "@/lib/sample-data";
+import type { EvidenceId } from "@/lib/types";
 
-export default function TalkPage() {
-  const router = useRouter();
-  const { state, ready, applyTalk } = useDemo();
+export default function ConsultPage() {
+  const { state, ready, applyAction, startProcedure } = useDemo();
+  const [evidence, setEvidence] = useState<EvidenceId | null>(null);
 
   useEffect(() => {
     if (!ready) {
       return;
     }
-    const next = conversationRoute(state);
-    if (next !== "/demo") {
-      router.replace(next);
+    if (state.track !== "procedure") {
+      startProcedure(false);
     }
-  }, [ready, router, state]);
+  }, [ready, state.track, startProcedure]);
 
-  function handleSubmit(value: string) {
-    const next = applyTalk(value);
-    const route = conversationRoute(next);
-    if (route !== "/demo") {
-      router.push(route);
-    }
-  }
-
-  if (!ready) {
-    return <p className="text-lg text-ink-soft">読み込んでいます…</p>;
-  }
-
-  if (conversationRoute(state) !== "/demo") {
-    return <p className="text-lg text-ink-soft">次の画面へ移ります…</p>;
+  if (!ready || state.track !== "procedure") {
+    return <p className="text-lg text-ink-soft">手続きの準備を読み込んでいます…</p>;
   }
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <Notice>
-        体験版です。音声入力は使わず、言葉と短い選択肢で進めます。一度に一つだけ聞きます。
-      </Notice>
-      <TalkPanel
+      <PageTitle eyebrow="しるべに相談する">いま必要なことだけ確認します</PageTitle>
+      <Notice>{MUNICIPALITY.note}</Notice>
+      <ProcedureConcierge
         state={state}
-        onSubmit={handleSubmit}
-        speakerLabel={state.viewerRole === "family" ? "健一さん" : "春子さん"}
+        onAction={applyAction}
+        onStart={() => startProcedure(false)}
+        onOpenEvidence={setEvidence}
       />
-      {state.talkStep === "paused" && state.memories.length > 0 ? (
-        <SecondaryLink href="/demo/summary">いままでのまとめを見る</SecondaryLink>
-      ) : null}
-      {state.talkStep === "family_ready" ? (
-        <PrimaryLink href="/demo/procedure">手続きの続きを見る</PrimaryLink>
-      ) : null}
+      <FamilyNav />
+      <EvidenceDialog id={evidence} state={state} onClose={() => setEvidence(null)} />
     </div>
   );
 }
