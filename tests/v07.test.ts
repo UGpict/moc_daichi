@@ -230,6 +230,7 @@ describe("v0.7 regression", () => {
       strength: "SOFT" as const,
       scope: "NEXT_DATE" as const,
       createdAt: "2026-09-19T00:00:00.000Z",
+      injectionFlags: [],
     };
     const h = candidateContentHash(c);
     const other = candidateContentHash({ ...c, content: "カフェが良かった" });

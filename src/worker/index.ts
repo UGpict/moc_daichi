@@ -2,6 +2,7 @@ import { WORKER, LIMITS } from "@/config/settings";
 import { claimPendingRun, heartbeat } from "@/server/agent/lease";
 import { executeRun } from "@/server/agent/execute";
 import { maybeRefreshDailyDigest } from "@/server/providers/dailyDigest";
+import { maskSecrets } from "@/server/security/logMask";
 
 const inflight = new Set<string>();
 
@@ -17,7 +18,7 @@ async function loop() {
   try {
     await executeRun(runId);
   } catch (error) {
-    console.error("worker run failed", runId, error);
+    console.error("worker run failed", runId, maskSecrets(String(error)));
   } finally {
     clearInterval(beat);
     inflight.delete(runId);

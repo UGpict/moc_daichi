@@ -1,25 +1,25 @@
 {
-  "at": "2026-09-19T15:51:01.817Z",
+  "at": "2026-09-19T16:41:35.160Z",
   "reports": [
     {
       "ok": true,
-      "git": "53f853e",
+      "git": "7a808ca",
       "runIds": [
-        "run_145c9d62c1e399d5",
-        "run_df59949060f627b4",
-        "run_06256449b2e7d0f0",
-        "run_4ab1a4323234af1f",
-        "run_eef8b1936102159a"
+        "run_326fa3d77107dbed",
+        "run_ad1d1d1c9279d532",
+        "run_5e721ae1b2c8356c",
+        "run_f2cf915f9a2ec7a4",
+        "run_0f8f3fc5d1f0c3e8"
       ],
       "durationsMs": [
-        4038,
-        3109,
-        2927,
-        3238
+        12627,
+        5567,
+        5869,
+        6602
       ],
       "costs": [
         {
-          "llmJpy": 0.378972,
+          "llmJpy": 0.42292799999999997,
           "apiJpy": null,
           "mundaneCalls": 0,
           "hardCalls": 1,
@@ -28,14 +28,18 @@
       ],
       "notes": [
         "meet=ChIJiYvXlOd2A2ARYxYm-Esg94E museum=ChIJiaAgDi13A2ARt6jZobbCNuw",
+        "repairs=1",
+        "llmTraceUsd=0.002848 jpy=0.42292799999999997 rows=2",
         "first status=SUCCEEDED validation=CONDITIONAL items=3 runs=INITIAL_PLAN:SUCCEEDED",
         "rain APPROVAL",
-        "delay status=FAILED (expected WAITING_APPROVAL)",
         "reflection status=WAITING_APPROVAL",
         "確認質問なし。保存候補の承認へ",
-        "next plan has no visible memory influence"
+        "next plan has no visible memory influence",
+        "memoryPlanDiff Matsuzakaya Art Museum>Nagoya City Art Museum>Chubu Electric Power MIRAI TOWER => Nagoya Castle>Nagoya City Art Museum>Chubu Electric Power MIRAI TOWER",
+        "sessionTraceJpy=1.511136 runCostJpy=1.511136 match=true"
       ],
-      "failures": []
+      "failures": [],
+      "repairCount": 1
     }
   ]
 }

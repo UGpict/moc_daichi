@@ -123,10 +123,36 @@ async function main() {
     rows.push({ name: "routes", status: "BLOCKED", detail: "no key" });
   }
 
+  if (env.orcaConfigured) {
+    rows.push(
+      await check("orcarouter named futari", async () => {
+        const res = await fetch(`${env.orcaBaseUrl.replace(/\/$/, "")}/models`, {
+          headers: { Authorization: `Bearer ${env.orcaApiKey}` },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!res.ok) {
+          return { status: "BLOCKED", detail: `GET /models HTTP ${res.status}。orcarouter/futari-* は作らない` };
+        }
+        const json = (await res.json()) as { data?: { id?: string }[] };
+        const ids = (json.data ?? []).map((m) => m.id).filter((id): id is string => Boolean(id));
+        const named = ids.filter((id) => id.startsWith("orcarouter/futari"));
+        if (named.length) {
+          return { status: "PASS", detail: named.join(", ") };
+        }
+        return {
+          status: "BLOCKED",
+          detail: `/v1/models に orcarouter/futari-* なし（${ids.length}件中）。命名は捏造せず ${env.orcaMundaneModel} / ${env.orcaHardModel}`,
+        };
+      }),
+    );
+  } else {
+    rows.push({ name: "orcarouter named futari", status: "BLOCKED", detail: "no key" });
+  }
+
   rows.push({
     name: "venue",
     status: "BLOCKED",
-    detail: "東京の発表会場住所・駅は未提供。開発時は名古屋駅周辺",
+    detail: "東京の発表会場住所・駅は未提供。開発デモは名古屋駅と東京駅を設定で切替",
   });
 
   for (const row of rows) {

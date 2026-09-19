@@ -313,6 +313,7 @@ export const memoryCandidateSchema = z.object({
   createdAt: z.string(),
   careTarget: preferenceTargetSchema.nullable().optional(),
   careDirection: z.enum(["REDUCE", "INCREASE", "PREFER", "AVOID"]).nullable().optional(),
+  injectionFlags: z.array(z.string()).default([]),
 });
 export type MemoryCandidate = z.infer<typeof memoryCandidateSchema>;
 
@@ -457,6 +458,9 @@ export const eventTypeSchema = z.enum([
   "SCENARIO_INJECTED",
   "ESCALATED",
   "NOTICE",
+  "REPAIR_ATTEMPTED",
+  "LLM_COERCED",
+  "INJECTION_FLAGGED",
 ]);
 export type EventType = z.infer<typeof eventTypeSchema>;
 

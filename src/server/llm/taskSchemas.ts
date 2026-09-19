@@ -20,6 +20,30 @@ export const planProposalSchema = z.object({
 });
 export type PlanProposal = z.infer<typeof planProposalSchema>;
 
+export const reflectionStrictSchema = z.object({
+  observations: z.array(z.string()),
+  uncertainties: z.array(z.string()),
+  clarification: z
+    .object({
+      prompt: z.string(),
+      options: z.array(z.string()).min(2).max(6),
+    })
+    .nullable(),
+  memoryCandidates: z.array(
+    z.object({
+      subject: z.enum(["SELF", "PARTNER", "BOTH"]),
+      type: z.enum(["CARE", "PREFERENCE", "CONSTRAINT"]),
+      content: z.string(),
+      sourceType: z.enum(["SELF_REPORT", "PARTNER_STATEMENT_REPORTED", "OBSERVATION", "HYPOTHESIS"]),
+      evidenceQuote: z.string(),
+      strength: z.enum(["SOFT", "HARD"]),
+      scope: z.enum(["NEXT_DATE", "ONGOING"]),
+      careTarget: z.enum(["WALKING", "STANDING", "SWEETS", "EXHIBIT", "INDOOR", "REST", "OTHER"]).nullable(),
+      careDirection: z.enum(["REDUCE", "INCREASE", "PREFER", "AVOID"]).nullable(),
+    }),
+  ),
+});
+
 export const agentActionLlmSchema = z.object({
   type: z.enum(["CALL_TOOLS", "PROPOSE_PLAN", "ASK_USER", "FINISH", "STOP"]),
   reason: z.string(),

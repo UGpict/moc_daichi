@@ -1,4 +1,5 @@
 import { getEnv } from "@/config/env";
+import { DEADLINES_MS } from "@/config/settings";
 import type { AppEvent, Run } from "@/domain/schemas";
 import { runPlanningOrchestrator } from "./orchestrator";
 import { runReflection } from "./reflection";
@@ -6,6 +7,7 @@ import { realNowIso } from "@/lib/time";
 import { findRun, withStore } from "@/server/repositories/store";
 import { canWriteRun } from "@/server/approvals/service";
 import { WORKER_ID } from "./lease";
+import { maskSecrets } from "@/server/security/logMask";
 
 export async function executeRun(runId: string): Promise<void> {
   const env = getEnv();
@@ -23,8 +25,7 @@ export async function executeRun(runId: string): Promise<void> {
     return;
   }
   const controller = new AbortController();
-  const deadline =
-    loaded.run.kind === "REFLECTION" ? 10_000 : loaded.run.kind === "REPLAN" ? 30_000 : 60_000;
+  const deadline = DEADLINES_MS[loaded.run.kind] ?? DEADLINES_MS.INITIAL_PLAN;
   const timer = setTimeout(() => controller.abort(), deadline);
   try {
     if (loaded.run.kind === "REFLECTION") {
@@ -33,7 +34,7 @@ export async function executeRun(runId: string): Promise<void> {
     }
     await runPlanningOrchestrator(runId, controller.signal);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown error";
+    const message = maskSecrets(error instanceof Error ? error.message : "unknown error");
     await withStore((db) => {
       const found = findRun(db, runId);
       if (!found) return;

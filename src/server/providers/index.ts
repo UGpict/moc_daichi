@@ -16,6 +16,7 @@ import { newId } from "@/lib/ids";
 import { realNowIso, toTokyoParts } from "@/lib/time";
 import { getCatalogSpot, MOCK_CATALOG, searchCatalog, type CatalogSpot } from "./catalog";
 import type { ScenarioOverlay } from "@/domain/schemas";
+import { withHttpRetry } from "./httpPolicy";
 
 export type ProviderCtx = {
   runId: string;
@@ -106,12 +107,19 @@ export async function searchSpots(
   if (env.profile === "LIVE") {
     assertLiveProvider("places");
     if (!env.googleMapsApiKey) throw new Error("BLOCKED: GOOGLE_MAPS_API_KEY");
-    const result = await counted(ctx, "places", () => liveSearch(env.googleMapsApiKey!, args));
+    const result = await counted(ctx, "places", () =>
+      withHttpRetry(() => liveSearch(env.googleMapsApiKey!, args), (decision) => {
+        ctx.onHttp({ provider: "places", cacheHit: false, attempt: ctx.httpAttempts });
+        void decision;
+      }),
+    );
     cacheSet(ctx, key, result);
     return result;
   }
   const result = await counted(ctx, "mock-places", async () => {
-    const found = searchCatalog(args.category).slice(0, 20);
+    const found = searchCatalog(args.category)
+      .filter((s) => haversineMeters({ lat: s.lat, lng: s.lng }, args.area) <= Math.max(args.radiusMeters, 3000))
+      .slice(0, 20);
     const evidenceList = [
       evidence({
         kind: "API",
@@ -146,12 +154,16 @@ export async function searchHappenings(
   }
   if (env.profile === "LIVE") {
     assertLiveProvider("places");
-    const result = await counted(ctx, "places-text", () => liveSearchText(env.googleMapsApiKey!, args));
+    const result = await counted(ctx, "places-text", () =>
+      withHttpRetry(() => liveSearchText(env.googleMapsApiKey!, args)),
+    );
     cacheSet(ctx, key, result);
     return result;
   }
   const result = await counted(ctx, "mock-places", async () => {
-    const found = searchCatalog(/展|催/.test(args.query) ? "展示" : args.query).slice(0, 8);
+    const found = searchCatalog(/展|催/.test(args.query) ? "展示" : args.query)
+      .filter((s) => haversineMeters({ lat: s.lat, lng: s.lng }, args.area) <= Math.max(args.radiusMeters, 3000))
+      .slice(0, 8);
     return {
       spots: found.map(toSpot),
       evidence: [
@@ -183,7 +195,9 @@ export async function getSpotDetails(
     return cached;
   }
   if (env.profile === "LIVE" && env.googleMapsApiKey && !args.spotId.startsWith("mock:")) {
-    const result = await counted(ctx, "places", () => liveDetails(env.googleMapsApiKey!, args.spotId));
+    const result = await counted(ctx, "places", () =>
+      withHttpRetry(() => liveDetails(env.googleMapsApiKey!, args.spotId)),
+    );
     cacheSet(ctx, key, result);
     return result;
   }
@@ -357,7 +371,7 @@ export async function estimateTravel(
   if (!base) {
     if (env.profile === "LIVE") {
       assertLiveProvider("routes");
-      base = await counted(ctx, "routes", () => liveRoute(env.googleMapsApiKey!, args));
+      base = await counted(ctx, "routes", () => withHttpRetry(() => liveRoute(env.googleMapsApiKey!, args)));
     } else {
       base = await counted(ctx, "mock-routes", async () => {
         const meters = haversineMeters(args.from, args.to);

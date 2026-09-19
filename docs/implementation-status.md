@@ -1,46 +1,31 @@
-# 実装状況（ふたりログ v0.7）
+# 実装状況（ふたりログ v0.8）
 
 最終更新: 2026-09-19。完成済み・検証済み・未実装・BLOCKED を混同しない。
 
 ## 実装済み（コードあり）
 
-- 日次候補カード、機能別 Container、単一オーケストレータ、Web/worker 分離を維持
-- 選択 3 件以上でも AI 最終調整を実行。`assembleMode=MANUAL` だけが手動組み立て
-- `ensureSpotFacts`：spot の存在だけでは詳細取得を省略しない
-- Place / Occurrence 分離。Places のイベント検索は会場候補。開催確認済みとは表示しない
-- SelectionDraft（API + namespace 付き sessionStorage）。候補なしは明示クリア
-- LocationPicker：名前・ID・座標を一体で保存
-- 希望の極性（LIKE/AVOID）。「歩きたくない」を散歩希望にしない
-- 予算：食事・施設・交通を分離。0 円有効。既知部分超過は FAIL
-- FAIL 案は適用しない（参考表示のみ）。承認でも拒否
-- 完了済み・進行中・固定予定を検証と適用の両方で保護
-- 記憶承認は candidateId + contentHash。文章部分一致は使わない
-- reflection は専用スキーマ。原文（マスク）を LLM に渡し、返した質問・候補を使用
-- LLM 試行を attempt 単位で記録。修正時の2試行を合算
-- DEV は JSON ストア。Firestore は couple/session/planVersion/run/approval を個別ドキュメントとする tx ロジックを実装
-- LIVE では mock トークン・mock ID を拒否。キー不足は MOCK へ落とさない
-- Firebase Auth：未設定時は DEV トークン。設定時は匿名 + Google（利用可能な場合）
-- UI：CandidateCard / SelectedSpotTray / LocationPicker / PreferenceSummary / 条件編集
+- FAIL 自動再計画（最大 3：候補を外す / 滞在短縮 / 順入替 / TRANSIT）。尽きれば WAITING_INPUT。条件は緩めない
+- 構造化 LLM: JSON Schema strict → 同モデル再試行 → hard エスカレート → 寛容パースは最終手段（`LLM_COERCED`）
+- 全 LLM 呼び出しのトレース（モデル・理由・トークン・費用・レイテンシ）。セッション JSON で合計照合
+- mundane/hard はタスク種別・入力サイズ・直前スキーマ失敗で明示ルーティング
+- 信頼できない入力の区切り、記憶インジェクション警告、AUTO_NOTIFY 許可リスト、ログマスク
+- `demo:chaos`（空入力、矛盾希望、閉店、400/429/timeout、過去出発）
+- 判断トレース UI（開閉）。再計画差分・承認待ち記憶・累計費用
+- 集合エリア切替（名古屋駅 / 東京駅）。発表会場そのものは未提供
+- 記憶あり/なしの行程差分を `docs/reports/memory-plan-diff.json` に出力
 
-## 検証済み（この環境で実行）
+## 検証済み
 
-- `npm test` の回帰（極性、0円予算、FAIL 適用拒否、lease fencing、digest キー、壊れ JSON、振り返り JSON の coerce）
-- LIVE 単発通し成功（commit `53f853e`）。Orca `openai/gpt-4o-mini` / `openai/gpt-4o`、Places、Routes、Firebase 匿名。詳細は `docs/live-results.md`
-- 型検証はこの作業中に再実行
+- `npm test` に `tests/v08.test.ts` を追加
+- このブランチの LIVE / `demo:five` 結果は `docs/live-results.md`
 
-## 未実装 / 部分的
+## BLOCKED
 
-- Firestore Admin への実書き込みパスは JSON アダプタのまま。ADC 実ファイル待ち
-- 公式イベント Occurrence の外部取得（許可サイト/公式 API）は未接続。未確認として施設カードで成立
-- LIVE 5連は 1 本目成功・2 本目が実移動時間の FAIL で停止（連続 1 / 5）。条件は緩和しない
-- 画面収録は未収録
-- 既存 `.data/store.json` の破壊的移行は作っていない（ドライラン/エクスポート方針のみ。無断上書きしない）
-
-## BLOCKED（利用者が入力すべき設定）
-
-| 項目 | 必要なもの |
+| 項目 | 理由 |
 |---|---|
-| Firestore LIVE | 実在する `GOOGLE_APPLICATION_CREDENTIALS`（この環境のパスはプレースホルダ） |
-| 発表会場 | 東京の住所・最寄り駅。未提供のため開発デモは名古屋駅周辺を明示 |
+| Named Router `orcarouter/futari-*` | `/v1/models` に無く、API から作成できない。カタログ ID を使用 |
+| 発表会場 | 住所・最寄り駅未提供 |
+| Firestore Admin | ADC がプレースホルダ。JSON ストア |
+| LIVE AUTO_NOTIFY PASS | 実 Places の営業時間・料金 UNKNOWN → CONDITIONAL。CONDITIONAL を PASS にしない |
 
-LIVE 要求時にキーが無ければ失敗し、モックへ自動降格しない。Emulator 成功を LIVE 成功としない。
+`sougi` 名称はリポジトリ内に残っていない。外部サービス側の旧表示は利用者設定。

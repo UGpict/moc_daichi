@@ -28,14 +28,23 @@ type Form = {
   end: PickedPlace | null;
   selectedSpots: { spotId: string; name: string; lat: number; lng: number; intent: "MUST_VISIT" | "PREFER_VISIT" }[];
   draftId: string | null;
+  areaId: string;
 };
 
-function defaultMeet(me: Me): PickedPlace {
+function storedAreaId(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("futari.areaId");
+}
+
+function defaultMeet(me: Me, areaId?: string | null): PickedPlace {
+  const chosen = areaId ?? storedAreaId();
+  const area = me.areas?.find((a) => a.id === chosen) ?? me.areas?.find((a) => a.name === me.demoAreaName);
+  const tokyo = area?.id === "area:tokyo-station";
   return {
-    id: me.runtime === "LIVE" ? "" : "mock:nagoya-station",
-    name: me.demoAreaName.includes("名古屋") ? "名古屋駅" : me.demoAreaName,
-    lat: me.demoLat,
-    lng: me.demoLng,
+    id: me.runtime === "LIVE" ? "" : tokyo ? "mock:tokyo-station" : "mock:nagoya-station",
+    name: area?.stationQuery ?? (me.demoAreaName.includes("名古屋") ? "名古屋駅" : me.demoAreaName),
+    lat: area?.lat ?? me.demoLat,
+    lng: area?.lng ?? me.demoLng,
   };
 }
 
@@ -49,7 +58,8 @@ function PlanCreateForm({ me }: { me: Me }) {
   const router = useRouter();
   const params = useSearchParams();
   const clearPicks = params.get("clearPicks") === "1";
-  const meetDefault = useMemo(() => defaultMeet(me), [me]);
+  const fallbackAreaId = me.areas?.find((a) => a.name === me.demoAreaName)?.id ?? "area:nagoya-station";
+  const meetDefault = useMemo(() => defaultMeet(me, fallbackAreaId), [me, fallbackAreaId]);
   const [form, setForm] = useState<Form>(() => ({
     dateTokyo: me.demoDate,
     startTime: "13:00",
@@ -66,11 +76,24 @@ function PlanCreateForm({ me }: { me: Me }) {
     end: meetDefault.id ? meetDefault : null,
     selectedSpots: [],
     draftId: null,
+    areaId: fallbackAreaId,
   }));
   const [editConditions, setEditConditions] = useState(false);
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = storedAreaId();
+    if (!stored || stored === fallbackAreaId) return;
+    const meet = defaultMeet(me, stored);
+    setForm((f) => ({
+      ...f,
+      areaId: stored,
+      meet: me.runtime === "LIVE" ? f.meet : meet,
+      end: me.runtime === "LIVE" ? f.end : meet,
+    }));
+  }, [me, fallbackAreaId]);
 
   useEffect(() => {
     if (clearPicks) return;
@@ -173,10 +196,10 @@ function PlanCreateForm({ me }: { me: Me }) {
             validUntil: form.auto ? new Date(Date.now() + 86400000).toISOString() : null,
           },
           travelMode: "WALK",
-          areaName: me.demoAreaName,
-          areaId: "area:nagoya-station",
-          areaLat: me.demoLat,
-          areaLng: me.demoLng,
+          areaName: (me.areas ?? []).find((a) => a.id === form.areaId)?.name ?? me.demoAreaName,
+          areaId: form.areaId,
+          areaLat: (me.areas ?? []).find((a) => a.id === form.areaId)?.lat ?? me.demoLat,
+          areaLng: (me.areas ?? []).find((a) => a.id === form.areaId)?.lng ?? me.demoLng,
           radiusMeters: 2500,
           pickedSpotIds: form.selectedSpots.map((s) => s.spotId),
           selectedSpots: form.selectedSpots,
@@ -221,6 +244,28 @@ function PlanCreateForm({ me }: { me: Me }) {
       </div>
       <LocationPicker label="集合（公共地点）" value={form.meet} onChange={(v) => setForm({ ...form, meet: v })} />
       <LocationPicker label="終了地点" value={form.end} onChange={(v) => setForm({ ...form, end: v })} />
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(me.areas ?? []).map((area) => (
+          <button
+            key={area.id}
+            type="button"
+            className={`rounded-full border px-3 py-1 text-xs ${form.areaId === area.id ? "border-rose bg-rose/10" : "border-line"}`}
+            onClick={() => {
+              localStorage.setItem("futari.areaId", area.id);
+              const meet = defaultMeet(me, area.id);
+              setForm({
+                ...form,
+                areaId: area.id,
+                meet: me.runtime === "LIVE" ? form.meet : meet,
+                end: me.runtime === "LIVE" ? form.end : meet,
+              });
+            }}
+          >
+            {area.name}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1 text-[11px] text-ink-soft">発表会場の住所は未提供。東京駅周辺はシナリオとして用意。名古屋駅も残しています。</p>
       <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
         <label>
           食事
