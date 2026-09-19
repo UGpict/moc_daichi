@@ -37,12 +37,27 @@ export function factSchema<T extends z.ZodType>(value: T) {
   });
 }
 
+export const preferencePolaritySchema = z.enum(["LIKE", "AVOID"]);
+export const preferenceHorizonSchema = z.enum(["THIS_DATE", "ONGOING"]);
+export const preferenceTargetSchema = z.enum([
+  "WALKING",
+  "STANDING",
+  "SWEETS",
+  "EXHIBIT",
+  "INDOOR",
+  "REST",
+  "OTHER",
+]);
+
 export const preferenceSchema = z.object({
   id: z.string(),
   subject: z.enum(["SELF", "PARTNER", "BOTH"]),
   content: z.string().min(1).max(2000),
   priority: z.enum(["MUST", "PREFER"]),
-  source: z.enum(["SELF_REPORT", "PARTNER_STATEMENT_REPORTED", "OBSERVATION"]),
+  source: z.enum(["SELF_REPORT", "PARTNER_STATEMENT_REPORTED", "OBSERVATION", "UNKNOWN"]),
+  polarity: preferencePolaritySchema.default("LIKE"),
+  horizon: preferenceHorizonSchema.default("THIS_DATE"),
+  targetKind: preferenceTargetSchema.default("OTHER"),
 });
 export type Preference = z.infer<typeof preferenceSchema>;
 
@@ -120,6 +135,9 @@ export const validationIssueSchema = z.object({
   itemIds: z.array(z.string()),
   message: z.string(),
   evidenceIds: z.array(z.string()),
+  targetId: z.string().nullable().default(null),
+  neededEvidence: z.string().nullable().default(null),
+  howToResolve: z.string().nullable().default(null),
 });
 export type ValidationIssue = z.infer<typeof validationIssueSchema>;
 
@@ -161,10 +179,25 @@ export const planSchema = z.object({
   memoryInfluences: z.array(
     z.object({
       memoryId: z.string(),
-      effect: z.enum(["PRIORITY", "DURATION", "REST_INSERT", "NONE"]),
+      effect: z.enum(["PRIORITY", "DURATION", "REST_INSERT", "INDOOR_PREF", "TRAVEL", "NONE"]),
       detail: z.string(),
+      before: z.string().nullable().default(null),
+      after: z.string().nullable().default(null),
+      reason: z.string().nullable().default(null),
+      evidenceIds: z.array(z.string()).default([]),
     }),
   ),
+  preferenceOutcomes: z
+    .array(
+      z.object({
+        preferenceId: z.string(),
+        state: z.enum(["SATISFIED", "PARTIAL", "UNMET", "UNKNOWN"]),
+        spotId: z.string().nullable(),
+        evidenceIds: z.array(z.string()).default([]),
+        note: z.string(),
+      }),
+    )
+    .default([]),
 });
 export type Plan = z.infer<typeof planSchema>;
 
@@ -223,7 +256,18 @@ export const meetPointSchema = z.object({
   lat: z.number(),
   lng: z.number(),
   spotId: z.string().nullable(),
+  provider: z.enum(["places", "mock", "user"]).default("user"),
+  resolved: z.boolean().default(true),
 });
+
+export const selectedSpotSchema = z.object({
+  spotId: z.string(),
+  name: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  intent: z.enum(["MUST_VISIT", "PREFER_VISIT"]).default("PREFER_VISIT"),
+});
+export type SelectedSpot = z.infer<typeof selectedSpotSchema>;
 
 export const planningInputSchema = z.object({
   dateTokyo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -237,10 +281,14 @@ export const planningInputSchema = z.object({
   autoApply: autoApplyPolicySchema,
   travelMode: travelModeSchema.default("WALK"),
   areaName: z.string(),
+  areaId: z.string().default("area:nagoya-station"),
   areaLat: z.number(),
   areaLng: z.number(),
   radiusMeters: z.number().default(2500),
   pickedSpotIds: z.array(z.string()).default([]),
+  selectedSpots: z.array(selectedSpotSchema).default([]),
+  draftId: z.string().nullable().default(null),
+  assembleMode: z.enum(["AI", "MANUAL"]).default("AI"),
 });
 export type PlanningInput = z.infer<typeof planningInputSchema>;
 
@@ -263,6 +311,8 @@ export const memoryCandidateSchema = z.object({
   strength: z.enum(["SOFT", "HARD"]),
   scope: z.enum(["NEXT_DATE", "ONGOING"]),
   createdAt: z.string(),
+  careTarget: preferenceTargetSchema.nullable().optional(),
+  careDirection: z.enum(["REDUCE", "INCREASE", "PREFER", "AVOID"]).nullable().optional(),
 });
 export type MemoryCandidate = z.infer<typeof memoryCandidateSchema>;
 
@@ -289,6 +339,9 @@ export const memorySchema = z.object({
   active: z.boolean(),
   version: z.number().int().positive(),
   supersedes: z.string().nullable(),
+  careTarget: preferenceTargetSchema.nullable().default(null),
+  careDirection: z.enum(["REDUCE", "INCREASE", "PREFER", "AVOID"]).nullable().default(null),
+  contentHash: z.string().nullable().default(null),
 });
 export type Memory = z.infer<typeof memorySchema>;
 
@@ -305,6 +358,14 @@ export const approvalSchema = z.object({
   diff: planDiffSchema.nullable(),
   consumedAt: z.string().nullable(),
   createdAt: z.string(),
+  payloadId: z.string().nullable().default(null),
+  payloadVersion: z.number().nullable().default(null),
+  candidateId: z.string().nullable().default(null),
+  candidateVersion: z.number().nullable().default(1),
+  sourceMemoryId: z.string().nullable().default(null),
+  sourceVersion: z.number().nullable().default(null),
+  replacementCandidateId: z.string().nullable().default(null),
+  presentedHash: z.string().nullable().default(null),
 });
 export type Approval = z.infer<typeof approvalSchema>;
 
@@ -337,7 +398,8 @@ export const runSchema = z.object({
   kind: runKindSchema,
   status: runStatusSchema,
   mode: modeSchema,
-  displayRuntime: z.enum(["MOCK", "LIVE", "REPLAY"]),
+  displayRuntime: z.enum(["MOCK", "DEV", "EMULATOR", "LIVE", "REPLAY"]),
+  leaseFencingToken: z.number().int().nonnegative().default(0),
   createdAt: z.string(),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
@@ -391,6 +453,7 @@ export const eventTypeSchema = z.enum([
   "TIME_BUDGET_REACHED",
   "CACHE_HIT",
   "HTTP_ATTEMPT",
+  "LLM_ATTEMPT",
   "SCENARIO_INJECTED",
   "ESCALATED",
   "NOTICE",
@@ -523,6 +586,8 @@ export const digestItemSchema = z.object({
   kind: z.enum(["HAPPENING", "PLACE"]),
   query: z.string(),
   why: z.string(),
+  occurrenceId: z.string().nullable().default(null),
+  displayKind: z.enum(["PLACE", "VENUE", "CONFIRMED_EVENT"]).default("PLACE"),
 });
 export type DigestItem = z.infer<typeof digestItemSchema>;
 
@@ -538,8 +603,56 @@ export const dailyDigestSchema = z.object({
   items: z.array(digestItemSchema),
   spots: z.record(z.string(), spotSchema),
   format: z.number().default(1),
+  areaId: z.string().default("area:nagoya-station"),
+  radiusMeters: z.number().default(2500),
+  providerVersion: z.string().default("v0.7"),
 });
 export type DailyDigest = z.infer<typeof dailyDigestSchema>;
+
+export const eventOccurrenceSchema = z.object({
+  id: z.string(),
+  venueSpotId: z.string(),
+  title: z.string(),
+  startAt: z.string().nullable(),
+  endAt: z.string().nullable(),
+  timeZone: z.string().default("Asia/Tokyo"),
+  officialUrl: z.string().nullable(),
+  confirmedAt: z.string(),
+  state: z.enum(["CONFIRMED", "UNCONFIRMED", "CANCELLED"]),
+  sourceRef: z.string().nullable(),
+  evidenceIds: z.array(z.string()).default([]),
+});
+export type EventOccurrence = z.infer<typeof eventOccurrenceSchema>;
+
+export const selectionDraftSchema = z.object({
+  id: z.string(),
+  ownerUid: z.string(),
+  areaId: z.string(),
+  createdAt: z.string(),
+  selectedSpots: z.array(selectedSpotSchema),
+  status: z.enum(["OPEN", "CONSUMED", "CLEARED"]),
+  consumedAt: z.string().nullable().default(null),
+});
+export type SelectionDraft = z.infer<typeof selectionDraftSchema>;
+
+export const llmAttemptSchema = z.object({
+  id: z.string(),
+  runId: z.string(),
+  task: z.string(),
+  attempt: z.number().int().positive(),
+  requestedModel: z.string(),
+  actualModel: z.string(),
+  promptTokens: z.number().nullable(),
+  completionTokens: z.number().nullable(),
+  costUsd: z.number().nullable(),
+  costJpy: z.number().nullable(),
+  latencyMs: z.number(),
+  ok: z.boolean(),
+  repaired: z.boolean(),
+  error: z.string().nullable(),
+  at: z.string(),
+});
+export type LlmAttempt = z.infer<typeof llmAttemptSchema>;
 
 export const reflectionSchema = z.object({
   id: z.string(),

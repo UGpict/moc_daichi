@@ -13,6 +13,7 @@ import type {
   Reflection,
   Run,
   ScenarioOverlay,
+  SelectionDraft,
   Session,
   Spot,
 } from "@/domain/schemas";
@@ -52,13 +53,14 @@ export type Db = {
   idempotency: Record<string, IdempotencyRecord>;
   tokens: Record<string, { uid: string; createdAt: string }>;
   digests: Record<string, DailyDigest>;
+  drafts: Record<string, SelectionDraft>;
 };
 
 const STORE_PATH = join(process.cwd(), ".data", "store.json");
 const LOCK_PATH = join(process.cwd(), ".data", "store.lock");
 
 function emptyDb(): Db {
-  return { couples: {}, idempotency: {}, tokens: {}, digests: {} };
+  return { couples: {}, idempotency: {}, tokens: {}, digests: {}, drafts: {} };
 }
 
 function sleep(ms: number) {
@@ -100,6 +102,7 @@ function readDb(): Db {
   try {
     const db = JSON.parse(readFileSync(STORE_PATH, "utf8")) as Db;
     db.digests ??= {};
+    db.drafts ??= {};
     return db;
   } catch {
     return emptyDb();

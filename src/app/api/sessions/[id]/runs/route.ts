@@ -7,10 +7,10 @@ export async function POST(
   request: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const auth = requireUid(request);
+  const auth = await requireUid(request);
   if ("error" in auth) return auth.error;
   const { id } = await ctx.params;
-  const body = (await request.json()) as { kind?: RunKind; trigger?: string };
+  const body = (await request.json()) as { kind?: RunKind; trigger?: string; note?: string };
   const kind = body.kind ?? "INITIAL_PLAN";
   const result = await startRun({
     uid: auth.uid,
@@ -18,7 +18,8 @@ export async function POST(
     kind,
     trigger: body.trigger ?? null,
     idempotencyKey: idempotencyKey(request),
-    bodyHash: sha256(JSON.stringify({ kind, trigger: body.trigger ?? null })),
+    bodyHash: sha256(JSON.stringify({ kind, trigger: body.trigger ?? null, note: body.note ?? null })),
+    reflectionNote: body.note ?? null,
   });
   if (!result.ok) return json({ error: result.error }, result.status);
   return json({ runId: result.runId }, 202);

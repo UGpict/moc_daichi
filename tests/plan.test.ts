@@ -3,13 +3,13 @@ import { describe, it } from "node:test";
 import { validatePlan } from "../src/domain/plan/validatePlan";
 import { evaluateAutoApply } from "../src/domain/plan/evaluateAutoApply";
 import { diffPlan } from "../src/domain/plan/diffPlan";
-import type { Plan, PlanningInput, Spot } from "../src/domain/schemas";
+import { planningInputSchema, type Plan, type PlanningInput, type Spot } from "../src/domain/schemas";
 
 function fact<T>(value: T | null) {
   return { value, evidenceIds: [] as string[] };
 }
 
-const input: PlanningInput = {
+const input: PlanningInput = planningInputSchema.parse({
   dateTokyo: "2026-09-19",
   startTime: "13:00",
   endTime: "18:00",
@@ -33,7 +33,7 @@ const input: PlanningInput = {
   areaLng: 136.88,
   radiusMeters: 2500,
   pickedSpotIds: [],
-};
+});
 
 const spots: Record<string, Spot> = {
   cafe: {
@@ -132,6 +132,7 @@ function basePlan(over: Partial<Plan> = {}): Plan {
     },
     dataMode: "LIVE",
     memoryInfluences: [],
+    preferenceOutcomes: [],
     ...over,
   };
   plan.validation = validatePlan(plan, { spots, input });

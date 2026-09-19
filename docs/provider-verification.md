@@ -14,9 +14,11 @@
   - ヘッダー `X-OrcaRouter-Include-Cost: true` で `usage.cost_usd`
 - Named Router: [named-routers](https://docs.orcarouter.ai/routing/named-routers)
   - 呼び出しは `model: "orcarouter/{name}"`
-  - ダッシュボード未作成の名前を想像して送らない。未作成なら BLOCKED
+  - ダッシュボード未作成の名前を想像して送らない。未作成なら `/v1/models` の実在 ID（例 `openai/gpt-4o-mini`）を使う
 
-実装: `src/server/llm/index.ts`。キーが無ければモック推論（課金 0、actualModel=`mock/planner-v0.5`）。
+実装: `src/server/llm/index.ts`。LIVE でキーが無ければ BLOCKED（モック推論へ落とさない）。DEV は `mock/planner-v0.7`。
+
+確認日: 2026-09-19。料金ヘッダーは [Per-request cost](https://docs.orcarouter.ai/operations/per-request-cost.md) の `X-OrcaRouter-Include-Cost` と `usage.cost_usd` を採用。独自ヘッダーは正しいと仮定しない。resolved model は応答ヘッダーがあれば `actualModel`、無ければ `unknown`。
 
 ## Google Places API (New)
 

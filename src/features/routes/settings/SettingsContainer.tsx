@@ -8,7 +8,7 @@ import { ModeBanner } from "@/components/mode-banner";
 import { useState } from "react";
 
 export function SettingsContainer() {
-  const { me, refresh } = useAuth();
+  const { me, refresh, signOutUser } = useAuth();
   const [msg, setMsg] = useState<string | null>(null);
   if (!me) return null;
   return (
@@ -41,6 +41,14 @@ export function SettingsContainer() {
         }}
       >
         デモデータをリセット
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={async () => {
+          await signOutUser();
+        }}
+      >
+        ログアウト
       </Button>
       {msg ? <p className="text-sm">{msg}</p> : null}
     </div>

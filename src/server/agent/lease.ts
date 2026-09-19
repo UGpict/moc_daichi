@@ -62,15 +62,17 @@ export async function claimPendingRun(): Promise<string | null> {
     found.run.leaseOwner = WORKER_ID;
     found.run.heartbeatAt = realNowIso();
     found.run.leaseExpiresAt = new Date(Date.now() + WORKER.leaseMs).toISOString();
+    found.run.leaseFencingToken = (found.run.leaseFencingToken ?? 0) + 1;
     return found.run.id;
   });
 }
 
-export async function heartbeat(runId: string): Promise<boolean> {
+export async function heartbeat(runId: string, fencingToken?: number): Promise<boolean> {
   return withStore((db) => {
     const found = findRun(db, runId);
     if (!found) return false;
     if (found.run.leaseOwner !== WORKER_ID) return false;
+    if (fencingToken != null && found.run.leaseFencingToken !== fencingToken) return false;
     found.run.heartbeatAt = realNowIso();
     found.run.leaseExpiresAt = new Date(Date.now() + WORKER.leaseMs).toISOString();
     return true;

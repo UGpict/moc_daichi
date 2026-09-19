@@ -7,6 +7,10 @@ import {
   type ScenarioKind,
 } from "@/domain/schemas";
 import { candidateToMemory } from "@/domain/memory";
+import { candidateContentHash } from "@/domain/memory/validateMemoryCandidate";
+import { structurePreference } from "@/domain/planning/requirements";
+import { canApplyPlan } from "@/server/approvals/service";
+import { consumeDraft } from "@/server/agent/drafts";
 import { maskPii } from "@/server/privacy/mask";
 import { draftShareMessage } from "@/server/privacy/dto";
 import { demoAllowed } from "@/server/auth";
@@ -29,14 +33,18 @@ function gitSha(): string | null {
 
 export function snapshotOf(couple: CoupleBundle, bundle: SessionBundle) {
   const env = getEnv();
-  const plan = bundle.session.currentPlanVersion
+  const applied = bundle.session.currentPlanVersion
     ? bundle.planHistory[String(bundle.session.currentPlanVersion)]
     : null;
+  const latestRun = Object.values(bundle.runs).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).at(-1);
+  const proposed =
+    latestRun?.resultPlanVersion != null ? bundle.planHistory[String(latestRun.resultPlanVersion)] : null;
+  const plan = applied ?? proposed ?? null;
   const runs = Object.values(bundle.runs).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const events = Object.values(bundle.events).sort((a, b) => a.seq - b.seq);
   const approvals = Object.values(couple.approvals).filter((a) => a.sessionId === bundle.session.id);
   return {
-    runtime: env.runtime,
+    runtime: env.profile === "LIVE" ? "LIVE" : env.profile === "EMULATOR" ? "EMULATOR" : "DEV",
     blockers: publicBlockers(),
     couple: couple.couple,
     session: bundle.session,
@@ -74,8 +82,27 @@ export async function createSession(uid: string, coupleId: string, raw: unknown)
   if (!parsed.success) {
     return { ok: false as const, status: 400, error: parsed.error.message };
   }
-  const input = resolveFixedSpot(parsed.data);
-  return withStore((db) => {
+  const env = getEnv();
+  if (env.profile === "LIVE") {
+    const ids = [
+      parsed.data.meet.spotId,
+      parsed.data.end.spotId,
+      ...parsed.data.fixedAppointments.map((a) => a.spotId),
+      ...parsed.data.pickedSpotIds,
+      ...parsed.data.selectedSpots.map((s) => s.spotId),
+    ];
+    if (ids.some((id) => id?.startsWith("mock:"))) {
+      return { ok: false as const, status: 400, error: "LIVE では mock ID を送れません" };
+    }
+  }
+  if (parsed.data.meet.resolved === false || parsed.data.end.resolved === false) {
+    return { ok: false as const, status: 400, error: "集合・終了地点が未解決です。候補から選んでください" };
+  }
+  const input = resolveFixedSpot({
+    ...parsed.data,
+    preferences: parsed.data.preferences.map((p) => structurePreference(p)),
+  });
+  const created = await withStore((db) => {
     const couple = db.couples[coupleId];
     if (!couple) return { ok: false as const, status: 404, error: "couple not found" };
     if (couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
@@ -112,6 +139,8 @@ export async function createSession(uid: string, coupleId: string, raw: unknown)
     }
     return { ok: true as const, id, input };
   });
+  if (created.ok) await consumeDraft(uid, input.draftId);
+  return created;
 }
 
 function resolveFixedSpot(input: PlanningInput): PlanningInput {
@@ -142,6 +171,7 @@ export async function startRun(input: {
   trigger?: string | null;
   idempotencyKey?: string | null;
   bodyHash: string;
+  reflectionNote?: string | null;
 }) {
   return withStore((db) => {
     if (input.idempotencyKey) {
@@ -187,8 +217,9 @@ export async function startRun(input: {
       ownerUid: input.uid,
       kind,
       status: "PENDING",
-      mode: env.runtime === "MOCK" ? "LIVE" : "LIVE",
-      displayRuntime: env.runtime === "MOCK" ? "MOCK" : "LIVE",
+      mode: env.profile === "LIVE" ? "LIVE" : "LIVE",
+      displayRuntime: env.profile === "LIVE" ? "LIVE" : env.profile === "EMULATOR" ? "EMULATOR" : "DEV",
+      leaseFencingToken: 0,
       createdAt: realNowIso(),
       startedAt: null,
       finishedAt: null,
@@ -227,6 +258,18 @@ export async function startRun(input: {
         bodyHash: input.bodyHash,
         status: 202,
         response,
+      };
+    }
+    if (kind === "REFLECTION" && input.reflectionNote) {
+      const masked = maskPii(input.reflectionNote);
+      const rid = newId("ref");
+      found.couple.reflections[rid] = {
+        id: rid,
+        sessionId: found.bundle.session.id,
+        coupleId: found.couple.couple.id,
+        rawNote: masked.masked,
+        maskedNote: masked.masked,
+        createdAt: realNowIso(),
       };
     }
     return { ok: true as const, duplicated: false, runId: id };
@@ -274,37 +317,77 @@ export async function answerQuestion(uid: string, runId: string, questionId: str
     };
     found.bundle.session.status = "REFLECTED";
     if (answer !== "保存しない" && answer !== "分からない") {
-      const cid = newId("mc");
-      found.couple.memoryCandidates[cid] = {
-        id: cid,
-        coupleId: found.couple.couple.id,
-        sessionId: found.bundle.session.id,
-        reflectionId,
-        answerId: questionId,
-        subject: "PARTNER",
-        type: "CARE",
-        content: answer,
-        sourceType: "PARTNER_STATEMENT_REPORTED",
-        evidenceQuote: masked.masked,
-        strength: "SOFT",
-        scope: "NEXT_DATE",
-        createdAt: realNowIso(),
-      };
-      const approvalId = newId("appr");
-      found.couple.approvals[approvalId] = {
-        id: approvalId,
-        coupleId: found.couple.couple.id,
-        sessionId: found.bundle.session.id,
-        runId,
-        planVersionFrom: found.bundle.session.currentPlanVersion ?? 0,
-        planVersionTo: found.bundle.session.currentPlanVersion ?? 0,
-        kind: "MEMORY_SAVE",
-        status: "PENDING",
-        summary: `記憶候補: ${answer}`,
-        diff: null,
-        consumedAt: null,
-        createdAt: realNowIso(),
-      };
+      const existing = Object.values(found.couple.memoryCandidates).filter(
+        (c) => c.sessionId === found.bundle.session.id && !c.answerId,
+      );
+      if (existing.length) {
+        for (const cand of existing) {
+          cand.answerId = questionId;
+          const approvalId = newId("appr");
+          found.couple.approvals[approvalId] = {
+            id: approvalId,
+            coupleId: found.couple.couple.id,
+            sessionId: found.bundle.session.id,
+            runId,
+            planVersionFrom: found.bundle.session.currentPlanVersion ?? 0,
+            planVersionTo: found.bundle.session.currentPlanVersion ?? 0,
+            kind: "MEMORY_SAVE",
+            status: "PENDING",
+            summary: `記憶候補: ${cand.content}`,
+            diff: null,
+            consumedAt: null,
+            createdAt: realNowIso(),
+            payloadId: cand.id,
+            payloadVersion: 1,
+            candidateId: cand.id,
+            candidateVersion: 1,
+            sourceMemoryId: null,
+            sourceVersion: null,
+            replacementCandidateId: null,
+            presentedHash: candidateContentHash(cand),
+          };
+        }
+      } else {
+        const cid = newId("mc");
+        found.couple.memoryCandidates[cid] = {
+          id: cid,
+          coupleId: found.couple.couple.id,
+          sessionId: found.bundle.session.id,
+          reflectionId,
+          answerId: questionId,
+          subject: "PARTNER",
+          type: "CARE",
+          content: answer,
+          sourceType: "PARTNER_STATEMENT_REPORTED",
+          evidenceQuote: masked.masked,
+          strength: "SOFT",
+          scope: "NEXT_DATE",
+          createdAt: realNowIso(),
+        };
+        const approvalId = newId("appr");
+        found.couple.approvals[approvalId] = {
+          id: approvalId,
+          coupleId: found.couple.couple.id,
+          sessionId: found.bundle.session.id,
+          runId,
+          planVersionFrom: found.bundle.session.currentPlanVersion ?? 0,
+          planVersionTo: found.bundle.session.currentPlanVersion ?? 0,
+          kind: "MEMORY_SAVE",
+          status: "PENDING",
+          summary: `記憶候補: ${answer}`,
+          diff: null,
+          consumedAt: null,
+          createdAt: realNowIso(),
+          payloadId: cid,
+          payloadVersion: 1,
+          candidateId: cid,
+          candidateVersion: 1,
+          sourceMemoryId: null,
+          sourceVersion: null,
+          replacementCandidateId: null,
+          presentedHash: candidateContentHash(found.couple.memoryCandidates[cid]!),
+        };
+      }
     }
     found.run.status = "SUCCEEDED";
     found.run.finishedAt = realNowIso();
@@ -323,9 +406,17 @@ export async function decideApproval(uid: string, approvalId: string, decision: 
     if (approval.kind === "PLAN_APPLY") {
       const bundle = found.couple.sessions[approval.sessionId];
       if (!bundle) return { ok: false as const, status: 404, error: "session" };
-      if (bundle.session.currentPlanVersion !== approval.planVersionFrom) {
-        return { ok: false as const, status: 409, error: "stale version" };
-      }
+      const nextPlan = bundle.planHistory[String(approval.planVersionTo)] ?? null;
+      const current = bundle.planHistory[String(approval.planVersionFrom)] ?? null;
+      const gate = canApplyPlan({
+        callerUid: uid,
+        ownerUid: found.couple.couple.ownerUid,
+        approval,
+        currentVersion: bundle.session.currentPlanVersion,
+        nextPlan,
+        previousPlan: current,
+      });
+      if (!gate.ok) return gate;
       approval.status = decision === "APPROVE" ? "CONSUMED" : "REJECTED";
       approval.consumedAt = realNowIso();
       const run = bundle.runs[approval.runId];
@@ -345,22 +436,29 @@ export async function decideApproval(uid: string, approvalId: string, decision: 
       approval.status = decision === "APPROVE" ? "CONSUMED" : "REJECTED";
       approval.consumedAt = realNowIso();
       if (decision === "APPROVE") {
-        const candidate = Object.values(found.couple.memoryCandidates).find(
-          (c) => c.sessionId === approval.sessionId && approval.summary.includes(c.content),
-        );
-        if (candidate && candidate.answerId) {
-          if (approval.kind === "MEMORY_EDIT") {
-            const old = Object.values(found.couple.memories).find((m) => m.content !== candidate.content && m.active);
-            if (old) old.active = false;
+        const candidate = approval.candidateId
+          ? found.couple.memoryCandidates[approval.candidateId]
+          : undefined;
+        if (!candidate) return { ok: false as const, status: 409, error: "candidateId required" };
+        if (approval.presentedHash && candidate.content) {
+          if (candidateContentHash(candidate) !== approval.presentedHash) {
+            return { ok: false as const, status: 409, error: "content hash mismatch; re-approve" };
           }
-          const mem = candidateToMemory({
-            candidate,
-            approvedAt: realNowIso(),
-            targetSessionId: null,
-            supersedes: approval.kind === "MEMORY_EDIT" ? approval.id : null,
-          });
-          found.couple.memories[mem.id] = mem;
         }
+        if (approval.kind === "MEMORY_EDIT") {
+          const old = approval.sourceMemoryId ? found.couple.memories[approval.sourceMemoryId] : undefined;
+          if (old && old.version !== (approval.sourceVersion ?? old.version)) {
+            return { ok: false as const, status: 409, error: "source version mismatch" };
+          }
+          if (old) old.active = false;
+        }
+        const mem = candidateToMemory({
+          candidate,
+          approvedAt: realNowIso(),
+          targetSessionId: candidate.scope === "NEXT_DATE" ? approval.sessionId : null,
+          supersedes: approval.kind === "MEMORY_EDIT" ? approval.sourceMemoryId : null,
+        });
+        found.couple.memories[mem.id] = mem;
       }
       return { ok: true as const, approval };
     }
@@ -478,6 +576,14 @@ export async function reviseMemory(uid: string, memoryId: string, content: strin
       diff: null,
       consumedAt: null,
       createdAt: realNowIso(),
+      payloadId: cid,
+      payloadVersion: 1,
+      candidateId: cid,
+      candidateVersion: 1,
+      sourceMemoryId: found.memory.id,
+      sourceVersion: found.memory.version,
+      replacementCandidateId: cid,
+      presentedHash: candidateContentHash(found.couple.memoryCandidates[cid]!),
     };
     return { ok: true as const, candidateId: cid, approvalId };
   });
@@ -523,10 +629,24 @@ export async function exportReplay(uid: string, runId: string) {
     const found = findRun(db, runId);
     if (!found) return { ok: false as const, status: 404, error: "not found" };
     if (found.couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
+    if (!found.couple.couple.isDemo) {
+      return { ok: false as const, status: 403, error: "REPLAY はデモデータのみ。実ユーザー原文は書き出さない" };
+    }
     const id = newId("rep");
     const events = Object.values(found.bundle.events)
       .filter((e) => e.runId === runId)
-      .sort((a, b) => a.seq - b.seq);
+      .sort((a, b) => a.seq - b.seq)
+      .map((e) => ({
+        ...e,
+        payload:
+          e.payload && typeof e.payload === "object"
+            ? Object.fromEntries(
+                Object.entries(e.payload as Record<string, unknown>).filter(
+                  ([k]) => !/rawNote|private|maskedNote/i.test(k),
+                ),
+              )
+            : e.payload,
+      }));
     const plan = found.run.resultPlanVersion
       ? found.bundle.planHistory[String(found.run.resultPlanVersion)]
       : null;
@@ -543,7 +663,7 @@ export async function exportReplay(uid: string, runId: string) {
       spots: Object.values(found.bundle.spots),
       evidence: Object.values(found.bundle.evidence),
       costSnapshot: found.run.cost,
-      notes: "デモ入力の記録。再生時に外部APIも新規課金もしない",
+      notes: "デモ入力のみを検査して保存。実ユーザーのPRIVATE原文は含まない。再生時に外部APIも新規課金もしない",
     };
     return { ok: true as const, replayId: id };
   });

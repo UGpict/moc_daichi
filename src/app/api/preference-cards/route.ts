@@ -3,7 +3,7 @@ import { listPreferenceCards } from "@/server/providers/preferenceCards";
 import { getEnv } from "@/config/env";
 
 export async function GET(request: Request) {
-  const auth = requireUid(request);
+  const auth = await requireUid(request);
   if ("error" in auth) return auth.error;
   const url = new URL(request.url);
   const subject = url.searchParams.get("subject") === "PARTNER" ? "PARTNER" : "SELF";

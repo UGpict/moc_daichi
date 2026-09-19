@@ -1,0 +1,81 @@
+import { getEnv } from "@/config/env";
+import { getApps, initializeApp, cert, applicationDefault, type App } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+
+let app: App | null = null;
+
+export function firebaseAdminApp(): App | null {
+  const env = getEnv();
+  if (getApps().length) return getApps()[0]!;
+  try {
+    if (env.authEmulatorHost || env.firestoreEmulatorHost) {
+      if (env.authEmulatorHost && !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+        process.env.FIREBASE_AUTH_EMULATOR_HOST = env.authEmulatorHost;
+      }
+      if (env.firestoreEmulatorHost && !process.env.FIRESTORE_EMULATOR_HOST) {
+        process.env.FIRESTORE_EMULATOR_HOST = env.firestoreEmulatorHost;
+      }
+      app = initializeApp({ projectId: env.firebaseProjectId ?? "futari-log-dev" });
+      return app;
+    }
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      app = initializeApp({ credential: applicationDefault(), projectId: env.firebaseProjectId ?? undefined });
+      return app;
+    }
+    if (env.firebaseProjectId && env.profile !== "DEV") {
+      app = initializeApp({ credential: applicationDefault(), projectId: env.firebaseProjectId });
+      return app;
+    }
+  } catch {
+    return null;
+  }
+  return getApps()[0] ?? null;
+}
+
+export async function verifyFirebaseIdToken(token: string): Promise<string | null> {
+  const adminUid = await verifyWithAdmin(token);
+  if (adminUid) return adminUid;
+  return verifyWithIdentityToolkit(token);
+}
+
+async function verifyWithAdmin(token: string): Promise<string | null> {
+  const a = firebaseAdminApp();
+  if (!a) return null;
+  try {
+    const decoded = await getAuth(a).verifyIdToken(token);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+}
+
+/** ADC が無いときでも、ウェブ API キーで ID トークンの妥当性を Firebase に確認する。mock トークンは使わない。 */
+async function verifyWithIdentityToolkit(token: string): Promise<string | null> {
+  const env = getEnv();
+  if (!env.firebaseApiKey || env.profile === "DEV") return null;
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(env.firebaseApiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token }),
+        signal: AbortSignal.timeout(8000),
+      },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { users?: { localId?: string }[] };
+    return json.users?.[0]?.localId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function firestoreDb() {
+  const a = firebaseAdminApp();
+  if (!a) return null;
+  return getFirestore(a);
+}
+
+void cert;

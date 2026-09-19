@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { verifyToken } from "@/server/auth";
+import { getEnv } from "@/config/env";
+import { verifyRequestToken } from "@/server/auth";
 
 export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -8,13 +9,15 @@ export function json(data: unknown, status = 200) {
 export function bearer(request: Request): string | null {
   const header = request.headers.get("authorization");
   if (header?.startsWith("Bearer ")) return header.slice(7);
+  const env = getEnv();
+  if (env.profile === "LIVE" || env.profile === "EMULATOR") return null;
   const cookie = request.headers.get("cookie") ?? "";
   const match = cookie.split(";").map((s) => s.trim()).find((s) => s.startsWith("futari_token="));
   return match ? decodeURIComponent(match.split("=")[1] ?? "") : null;
 }
 
-export function requireUid(request: Request): { uid: string } | { error: NextResponse } {
-  const uid = verifyToken(bearer(request));
+export async function requireUid(request: Request): Promise<{ uid: string } | { error: NextResponse }> {
+  const uid = await verifyRequestToken(bearer(request));
   if (!uid) return { error: json({ error: "unauthorized" }, 401) };
   return { uid };
 }

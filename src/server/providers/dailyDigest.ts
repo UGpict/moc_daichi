@@ -1,12 +1,13 @@
 import { getEnv } from "@/config/env";
+import { PROVIDER_VERSION } from "@/config/settings";
 import type { DailyDigest, DigestItem, Spot } from "@/domain/schemas";
 import { realNowIso, tokyoToday } from "@/lib/time";
 import { searchHappenings, searchSpots, type ProviderCtx } from "@/server/providers";
 import { vibeFromCategories } from "@/server/places/photoName";
 import { withStore } from "@/server/repositories/store";
 
-function digestId(areaName: string, date: string) {
-  return `digest:${areaName}:${date}`;
+function digestId(areaId: string, lat: number, lng: number, radius: number, date: string) {
+  return `digest:${areaId}:${lat.toFixed(5)}:${lng.toFixed(5)}:${radius}:${date}:${PROVIDER_VERSION}`;
 }
 
 function ctx(): ProviderCtx {
@@ -21,14 +22,14 @@ function ctx(): ProviderCtx {
 
 export async function readTodayDigest(): Promise<DailyDigest | null> {
   const env = getEnv();
-  const id = digestId(env.demoAreaName, tokyoToday());
+  const id = digestId(env.demoAreaId, env.demoLat, env.demoLng, 2500, tokyoToday());
   return withStore((db) => db.digests?.[id] ?? null);
 }
 
 export async function maybeRefreshDailyDigest(): Promise<void> {
   const env = getEnv();
   const date = tokyoToday();
-  const id = digestId(env.demoAreaName, date);
+  const id = digestId(env.demoAreaId, env.demoLat, env.demoLng, 2500, date);
   const start = await withStore((db) => {
     db.digests ??= {};
     const cur = db.digests[id];
@@ -49,6 +50,9 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
       items: cur?.items ?? [],
       spots: cur?.spots ?? {},
       format: 2,
+      areaId: env.demoAreaId,
+      radiusMeters: 2500,
+      providerVersion: PROVIDER_VERSION,
     };
     return true;
   });
@@ -114,6 +118,8 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
         kind: pack.q.kind,
         query: pack.q.query,
         why: pack.q.why,
+        occurrenceId: null,
+        displayKind: pack.q.kind === "HAPPENING" ? "VENUE" : "PLACE",
       });
       added = true;
     }
@@ -135,10 +141,13 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
       items,
       spots,
       format: 2,
+      areaId: env.demoAreaId,
+      radiusMeters: 2500,
+      providerVersion: PROVIDER_VERSION,
     };
   });
 }
 
-export function digestKey(areaName: string, date: string) {
-  return digestId(areaName, date);
+export function digestKey(areaId: string, lat: number, lng: number, radius: number, date: string) {
+  return digestId(areaId, lat, lng, radius, date);
 }

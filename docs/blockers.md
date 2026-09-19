@@ -4,13 +4,13 @@
 
 | 項目 | 状態 | 利用者が用意するもの |
 |---|---|---|
-| Firebase Auth / Firestore | BLOCKED | プロジェクト、匿名 Auth、許可ドメイン、サービスアカウントまたは ADC |
-| OrcaRouter | BLOCKED | `ORCAROUTER_API_KEY`、mundane/hard の Named Router 実名 |
-| Google Places / Routes | BLOCKED | `GOOGLE_MAPS_API_KEY`（Places New と Routes を有効化） |
-| 東京発表会場 | BLOCKED | 会場住所と最寄り駅。未提供のため開発デモは名古屋駅周辺を**明示**して使用。発表エリア確定とは言わない |
-| LIVE 5連成功 | 未実施 | 上記キー。モック連続は `npm run demo:five` で 5/5 |
-| モック通し | 実施済み | `demo:live` PASS、`demo:five` 5連続成功（同一版） |
-| 画面収録 | 未収録 | 成功した実実行の後にブラウザー収録 |
-| Named Router 名 | 未確認 | ダッシュボードの実際の router 名。`orcarouter/mundane` はプレースホルダ |
+| Firebase Auth | PASS（この環境） | ウェブ API キーで匿名 `signUp` + `accounts:lookup`。ADC 無し |
+| Firestore Admin | BLOCKED | 実在する ADC / `GOOGLE_APPLICATION_CREDENTIALS`。未接続時は JSON ストア |
+| OrcaRouter | PASS（この環境） | キーあり。Named Router 未作成のため `/v1/models` の `openai/gpt-4o-mini` / `openai/gpt-4o` |
+| Google Places / Routes | PASS（この環境） | Places New と Routes。過去の `departureTime` は送らない |
+| 東京発表会場 | BLOCKED | 会場住所と最寄り駅。未提供のため開発デモは名古屋駅周辺を**明示**して使用 |
+| LIVE 5連成功 | 途中失敗 | 単発は成功。5連 2 本目は実移動で FAIL（未適用）。モック連続は別 |
+| 公式イベント開催確認 | BLOCKED | 許可した公式 API / 公式サイト。Places の「イベント」検索は会場候補 |
+| 画面収録 | 未収録 | 成功した実実行の後 |
 
-モック実行は独立して動作する。LIVE 合格判定には使わない。
+DEV 実行は独立して動作する。LIVE 合格判定には使わない。Emulator 成功を LIVE 成功としない。

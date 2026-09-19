@@ -1,11 +1,9 @@
-process.env.APP_RUNTIME ??= "MOCK";
-process.env.ENABLE_DEMO_CONTROLS ??= "true";
-process.env.DEMO_DATE ??= "2026-09-19";
-
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
+import { getEnv } from "../src/config/env";
+import { tokyoToday } from "../src/lib/time";
 
 const BASE = process.env.DEMO_BASE_URL ?? "http://127.0.0.1:3000";
 const five = process.argv.includes("--five");
@@ -20,15 +18,60 @@ type Report = {
   failures: string[];
 };
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function portOpen(): Promise<boolean> {
+  try {
+    const res = await fetch(BASE, { signal: AbortSignal.timeout(800) });
+    return res.ok || res.status === 404 || res.status >= 400;
+  } catch {
+    return false;
+  }
+}
+
+function killDevStack() {
+  const needles = ["next-server", "next dev", "src/worker/index.ts", "scripts/dev.ts"];
+  const self = process.pid;
+  for (const name of readdirSync("/proc")) {
+    if (!/^\d+$/.test(name)) continue;
+    const pid = Number(name);
+    if (pid === self) continue;
+    let cmd = "";
+    try {
+      cmd = readFileSync(`/proc/${pid}/cmdline`, "utf8").replace(/\0/g, " ");
+    } catch {
+      continue;
+    }
+    if (cmd.includes("live-demo.ts")) continue;
+    if (!needles.some((n) => cmd.includes(n))) continue;
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+async function freePort() {
+  for (let i = 0; i < 20; i++) {
+    killDevStack();
+    await sleep(400);
+    if (!(await portOpen())) return;
+  }
+  throw new Error("port 3000 still in use after kill");
+}
+
 async function waitForServer() {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 90; i++) {
     try {
       const res = await fetch(BASE);
       if (res.ok || res.status === 404) return;
     } catch {
       /* retry */
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await sleep(500);
   }
   throw new Error("server not ready");
 }
@@ -55,7 +98,26 @@ async function api(path: string, init: RequestInit & { token?: string } = {}) {
   return json;
 }
 
-async function waitRun(token: string, runId: string) {
+async function firebaseAnonymous(): Promise<{ uid: string; token: string }> {
+  const env = getEnv();
+  if (!env.firebaseApiKey) throw new Error("NEXT_PUBLIC_FIREBASE_API_KEY missing");
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(env.firebaseApiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ returnSecureToken: true }),
+      signal: AbortSignal.timeout(10000),
+    },
+  );
+  const json = (await res.json()) as { idToken?: string; localId?: string; error?: { message?: string } };
+  if (!res.ok || !json.idToken || !json.localId) {
+    throw new Error(`firebase anonymous failed: ${json.error?.message ?? res.status}`);
+  }
+  return { uid: json.localId, token: json.idToken };
+}
+
+async function waitRun(token: string, runId: string, timeoutMs = 75_000) {
   const start = Date.now();
   for (;;) {
     const view = await api(`/api/runs/${runId}`, { token });
@@ -63,7 +125,7 @@ async function waitRun(token: string, runId: string) {
     if (["SUCCEEDED", "WAITING_INPUT", "WAITING_APPROVAL", "FAILED", "PARTIAL", "INTERRUPTED"].includes(status)) {
       return { view, ms: Date.now() - start };
     }
-    if (Date.now() - start > 25000) throw new Error(`timeout ${runId} ${status}`);
+    if (Date.now() - start > timeoutMs) throw new Error(`timeout ${runId} ${status}`);
     await new Promise((r) => setTimeout(r, 300));
   }
 }
@@ -78,9 +140,23 @@ async function onePass(): Promise<Report> {
     ? execSync("git rev-parse --short HEAD").toString().trim()
     : undefined;
 
-  const auth = await fetch(`${BASE}/api/auth/anonymous`, { method: "POST" });
-  const setCookie = auth.headers.get("set-cookie") ?? "";
-  const token = setCookie.match(/futari_token=([^;]+)/)?.[1];
+  const env = getEnv();
+  let token: string | undefined = process.env.DEMO_FIREBASE_ID_TOKEN;
+  if (!token) {
+    if (env.profile === "LIVE") {
+      const fb = await firebaseAnonymous();
+      token = fb.token;
+      notes.push(`firebase uid=${fb.uid}`);
+    } else {
+      const auth = await fetch(`${BASE}/api/auth/anonymous`, { method: "POST" });
+      const setCookie = auth.headers.get("set-cookie") ?? "";
+      token = setCookie.match(/futari_token=([^;]+)/)?.[1];
+      if (!token) {
+        const body = (await auth.json().catch(() => ({}))) as { token?: string };
+        token = body.token;
+      }
+    }
+  }
   if (!token) throw new Error("no token");
   const me = await api("/api/me", { token });
   const couple = await api("/api/couples", {
@@ -88,7 +164,32 @@ async function onePass(): Promise<Report> {
     token,
     body: JSON.stringify({ isDemo: true }),
   });
-  const date = process.env.DEMO_DATE ?? "2026-09-19";
+  const date = env.demoDate;
+  let meet = {
+    name: "名古屋駅",
+    lat: env.demoLat,
+    lng: env.demoLng,
+    spotId: env.profile === "LIVE" ? null : "mock:nagoya-station",
+    provider: env.profile === "LIVE" ? "places" : "mock",
+    resolved: env.profile !== "LIVE",
+  };
+  let museum: { id: string; name: string; lat: number; lng: number } | null = null;
+  if (env.profile === "LIVE") {
+    const station = await api(`/api/places/search?q=${encodeURIComponent("名古屋駅")}`, { token });
+    const hit = (station.spots as { id: string; name: string; lat: number; lng: number }[])?.[0];
+    if (!hit) throw new Error("LIVE: 名古屋駅の Places 検索が空");
+    meet = {
+      name: hit.name,
+      lat: hit.lat,
+      lng: hit.lng,
+      spotId: hit.id,
+      provider: "places",
+      resolved: true,
+    };
+    const art = await api(`/api/places/search?q=${encodeURIComponent("愛知県美術館")}`, { token });
+    museum = (art.spots as { id: string; name: string; lat: number; lng: number }[])?.[0] ?? null;
+    notes.push(`meet=${hit.id} museum=${museum?.id ?? "none"}`);
+  }
   const session = await api(`/api/couples/${couple.id}/sessions`, {
     method: "POST",
     token,
@@ -96,34 +197,51 @@ async function onePass(): Promise<Report> {
       dateTokyo: date,
       startTime: "13:00",
       endTime: "18:00",
-      meet: { name: "名古屋駅", lat: 35.170915, lng: 136.881537, spotId: "mock:nagoya-station" },
-      end: { name: "名古屋駅", lat: 35.170915, lng: 136.881537, spotId: "mock:nagoya-station" },
+      meet,
+      end: meet,
       budget: { mealsJpy: 8000, facilitiesJpy: 4000, transitJpy: 2000 },
       preferences: [
         { id: "pref_self", subject: "SELF", content: "散歩と展示", priority: "PREFER", source: "SELF_REPORT" },
         { id: "pref_partner", subject: "PARTNER", content: "甘いもの", priority: "MUST", source: "PARTNER_STATEMENT_REPORTED" },
       ],
-      fixedAppointments: [
-        {
-          id: "fix_art",
-          label: "愛知県美術館",
-          spotId: "mock:aichi-art-museum",
-          spotNameHint: "愛知県美術館",
-          startAt: `${date}T15:00:00+09:00`,
-          endAt: `${date}T16:00:00+09:00`,
-          kind: "TIME_FIXED",
-        },
-      ],
+      fixedAppointments:
+        env.profile === "LIVE"
+          ? museum
+            ? [
+                {
+                  id: "fix_art",
+                  label: museum.name,
+                  spotId: museum.id,
+                  spotNameHint: museum.name,
+                  startAt: `${date}T15:00:00+09:00`,
+                  endAt: `${date}T16:00:00+09:00`,
+                  kind: "TIME_FIXED",
+                },
+              ]
+            : []
+          : [
+              {
+                id: "fix_art",
+                label: "愛知県美術館",
+                spotId: "mock:aichi-art-museum",
+                spotNameHint: "愛知県美術館",
+                startAt: `${date}T15:00:00+09:00`,
+                endAt: `${date}T16:00:00+09:00`,
+                kind: "TIME_FIXED",
+              },
+            ],
       autoApply: {
         enabled: true,
         acknowledgedScope: "未着手1件 PASS 予算増なし 終了遅延なし 移動増なし",
         validUntil: "2099-01-01T00:00:00.000Z",
       },
       travelMode: "WALK",
-      areaName: "名古屋駅周辺",
-      areaLat: 35.170915,
-      areaLng: 136.881537,
+      areaName: env.demoAreaName,
+      areaId: env.demoAreaId,
+      areaLat: env.demoLat,
+      areaLng: env.demoLng,
       radiusMeters: 2500,
+      assembleMode: "AI",
     }),
   });
 
@@ -202,7 +320,7 @@ async function onePass(): Promise<Report> {
     body: JSON.stringify({
       kind: "TRAVEL_DELAY",
       overlay: { delayMinutes: 55 },
-      spotId: "mock:aichi-art-museum",
+      spotId: museum?.id ?? snapRain.plan?.items.find((i: { locked: boolean }) => !i.locked)?.spotId,
     }),
   });
   const delayWait = await waitRun(token, delay.runId);
@@ -220,20 +338,29 @@ async function onePass(): Promise<Report> {
   const refl = await api(`/api/sessions/${session.sessionId}/runs`, {
     method: "POST",
     token,
-    body: JSON.stringify({ kind: "REFLECTION" }),
+    body: JSON.stringify({ kind: "REFLECTION", note: "カフェは喜んでた。展示は途中で疲れてた" }),
   });
   const reflWait = await waitRun(token, refl.runId);
   runIds.push(refl.runId);
-  if (reflWait.view.run.status !== "WAITING_INPUT") failures.push("no confirmation question");
-  const q = reflWait.view.run.waitingQuestion;
-  await api(`/api/runs/${refl.runId}/answers`, {
-    method: "POST",
-    token,
-    body: JSON.stringify({
-      questionId: q.id,
-      answer: "長く立つのがしんどいと言っていた",
-    }),
-  });
+  notes.push(`reflection status=${reflWait.view.run.status}`);
+  if (reflWait.view.run.status === "WAITING_INPUT") {
+    const q = reflWait.view.run.waitingQuestion;
+    if (!q?.id) failures.push("WAITING_INPUT but no question");
+    else {
+      await api(`/api/runs/${refl.runId}/answers`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          questionId: q.id,
+          answer: "長く立つのがしんどいと言っていた",
+        }),
+      });
+    }
+  } else if (reflWait.view.run.status === "WAITING_APPROVAL") {
+    notes.push("確認質問なし。保存候補の承認へ");
+  } else {
+    failures.push(`reflection ended ${reflWait.view.run.status}`);
+  }
   const snapMem = await api(`/api/sessions/${session.sessionId}`, { token });
   const pendingMem = (snapMem.approvals as { kind: string; status: string; id: string }[]).find(
     (a) => a.kind === "MEMORY_SAVE" && a.status === "PENDING",
@@ -285,8 +412,31 @@ async function onePass(): Promise<Report> {
 async function main() {
   let child: ChildProcess | null = null;
   try {
+    const env = getEnv();
+    process.env.ENABLE_DEMO_CONTROLS ??= "true";
+    process.env.DEMO_DATE ??= env.demoDate;
+    if (env.profile === "LIVE") {
+      const today = tokyoToday();
+      if ((process.env.DEMO_DATE ?? env.demoDate) < today) {
+        process.env.DEMO_DATE = today;
+        console.log(JSON.stringify({ demoDateAdjustedToTokyoToday: today }));
+      }
+    }
+    if (env.profile === "LIVE") {
+      const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      if (credPath && !existsSync(credPath)) {
+        delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        console.log(JSON.stringify({ skippedMissingAdc: true }));
+      }
+      const fb = await firebaseAnonymous();
+      process.env.DEMO_FIREBASE_ID_TOKEN = fb.token;
+      process.env.DEMO_ALLOWED_UIDS = fb.uid;
+      process.env.ENABLE_DEMO_CONTROLS = "true";
+      console.log(JSON.stringify({ firebaseAnonymous: true, uidPrefix: fb.uid.slice(0, 6) }));
+      await freePort();
+    }
     const maybe = await fetch(BASE).then(() => null).catch(() => "start");
-    if (maybe === "start") {
+    if (maybe === "start" || env.profile === "LIVE") {
       child = spawn("npx", ["tsx", "scripts/dev.ts"], {
         stdio: "inherit",
         env: process.env,
