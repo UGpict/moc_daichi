@@ -63,27 +63,22 @@ export async function buildPlan(input: {
     return { ...a, spotId: spotId ?? a.spotId };
   });
 
-  const ordered = uniqueIds([
-    ...locked.map((l) => l.spotId).filter((x): x is string => Boolean(x)),
-    ...input.orderedSpotIds,
-  ]).filter((id) => spots[id]);
+  const lockedIds = locked.map((l) => l.spotId).filter((x): x is string => Boolean(x));
+  const unlocked = uniqueIds(input.orderedSpotIds).filter(
+    (id) => spots[id] && !lockedIds.includes(id),
+  );
 
   const items: PlanItem[] = [];
   const influences: Plan["memoryInfluences"] = [];
-
   const prevBySpot = new Map((input.previousItems ?? []).map((i) => [i.spotId, i]));
 
-  let cursor = start;
-  for (let i = 0; i < ordered.length; i++) {
-    const spotId = ordered[i];
-    const spot = spots[spotId];
-    const appt = locked.find((l) => l.spotId === spotId);
-    const prev = prevBySpot.get(spotId);
-    if (prev && (prev.progress === "DONE" || prev.progress === "IN_PROGRESS" || prev.locked)) {
-      items.push({ ...prev, id: prev.id });
-      cursor = prev.endAt;
-      continue;
-    }
+  function baseStay(spot: Spot): number {
+    if (restCare && (spot.standingBurden.value === "HIGH" || spot.standingBurden.value === "MEDIUM")) return 35;
+    if (restCare && spot.restEase.value === "EASY") return 40;
+    return 50;
+  }
+
+  function stayAndMemory(spot: Spot): { stay: number; memIds: string[] } {
     let stay = 50;
     const memIds: string[] = [];
     if (restCare && (spot.standingBurden.value === "HIGH" || spot.standingBurden.value === "MEDIUM")) {
@@ -108,16 +103,22 @@ export async function buildPlan(input: {
         });
       }
     }
-    let startAt: string;
-    let endAt: string;
-    if (appt?.spotId === spotId) {
-      startAt = appt.startAt;
-      endAt = appt.endAt;
-    } else {
-      startAt = cursor;
-      endAt = addMinutes(startAt, stay);
+    return { stay, memIds: [...new Set(memIds)] };
+  }
+
+  function makeItem(
+    spotId: string,
+    startAt: string,
+    endAt: string,
+    appt: (typeof locked)[number] | undefined,
+    prev?: PlanItem,
+  ): PlanItem {
+    if (prev && (prev.progress === "DONE" || prev.progress === "IN_PROGRESS" || prev.locked)) {
+      return { ...prev };
     }
-    items.push({
+    const spot = spots[spotId];
+    const { memIds } = stayAndMemory(spot);
+    return {
       id: newId("it"),
       spotId,
       startAt,
@@ -126,12 +127,48 @@ export async function buildPlan(input: {
       locked: Boolean(appt),
       lockReason: appt ? "時刻固定" : null,
       matchesPreferenceIds: preferenceMatchIds(spot, input.input.preferences),
-      memoryIds: [...new Set(memIds)],
+      memoryIds: memIds,
       reason: reasonFor(spot, input.input),
       evidenceIds: [...spot.environment.evidenceIds, ...spot.costForTwoJpy.evidenceIds],
-    });
-    cursor = endAt;
+    };
   }
+
+  const lockItems = locked
+    .filter((l) => l.spotId && spots[l.spotId])
+    .map((appt) => makeItem(appt.spotId!, appt.startAt, appt.endAt, appt, prevBySpot.get(appt.spotId!)));
+  lockItems.sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const firstLockStart = lockItems[0]?.startAt ?? addMinutes(start, 12 * 60);
+  const lastLockEnd = lockItems.at(-1)?.endAt ?? start;
+
+  const before: PlanItem[] = [];
+  const after: PlanItem[] = [];
+  let cursor = start;
+  for (const spotId of unlocked) {
+    const spot = spots[spotId];
+    const prev = prevBySpot.get(spotId);
+    const stay = baseStay(spot);
+    const tentativeEnd = addMinutes(cursor, stay);
+    const overlapsLock =
+      lockItems.length > 0 &&
+      new Date(addMinutes(tentativeEnd, 40)).getTime() > new Date(firstLockStart).getTime();
+    if (overlapsLock) {
+      after.push(makeItem(spotId, lastLockEnd, addMinutes(lastLockEnd, stay), undefined, prev));
+    } else {
+      const item = makeItem(spotId, cursor, tentativeEnd, undefined, prev);
+      before.push(item);
+      cursor = item.endAt;
+    }
+  }
+  let afterCursor = lastLockEnd;
+  for (const item of after) {
+    if (item.locked || item.progress === "DONE" || item.progress === "IN_PROGRESS") continue;
+    const stay = Math.max(25, minutesBetween(item.startAt, item.endAt) || 40);
+    item.startAt = afterCursor;
+    item.endAt = addMinutes(afterCursor, stay);
+    afterCursor = item.endAt;
+  }
+
+  items.push(...before, ...lockItems, ...after);
 
   if (restCare && !items.some((it) => spots[it.spotId]?.restEase.value === "EASY")) {
     influences.push({
@@ -148,7 +185,7 @@ export async function buildPlan(input: {
     });
   }
 
-  items.sort((a, b) => a.startAt.localeCompare(b.startAt));
+  items.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 
   const legs: TravelLeg[] = [];
   const meet = input.input.meet;
@@ -194,7 +231,7 @@ export async function buildPlan(input: {
     if (!items[0].locked) {
       items[0].startAt = addMinutes(start, travel);
       const stay = minutesBetween(items[0].startAt, items[0].endAt);
-      const originalStay = stay > 0 ? stay : 50;
+      const originalStay = stay > 0 && stay <= 80 ? stay : 50;
       items[0].endAt = addMinutes(items[0].startAt, originalStay);
     }
   }
@@ -202,21 +239,35 @@ export async function buildPlan(input: {
   for (let i = 0; i < items.length - 1; i++) {
     const a = spots[items[i].spotId];
     const b = spots[items[i + 1].spotId];
-    const l = await legBetween(
-      { lat: a.lat, lng: a.lng, spotId: a.id, kind: "SPOT" },
-      { lat: b.lat, lng: b.lng, spotId: b.id, kind: "SPOT" },
-      items[i].endAt,
-    );
-    legs.push(l);
-    const travel = (l.durationMinutes.value ?? 0) + (l.delayMinutesInjected ?? 0);
-    if (!items[i + 1].locked) {
+    const preview = await estimateTravel(input.ctx, {
+      from: { lat: a.lat, lng: a.lng, spotId: a.id },
+      to: { lat: b.lat, lng: b.lng, spotId: b.id },
+      mode,
+      departureAt: items[i].endAt,
+    });
+    const travel = (preview.durationMinutes ?? 0) + preview.delayMinutes;
+    if (items[i + 1].locked) {
+      const mustEnd = addMinutes(items[i + 1].startAt, -travel);
+      const minEnd = addMinutes(items[i].startAt, 25);
+      if (new Date(items[i].endAt) > new Date(mustEnd) && new Date(mustEnd) >= new Date(minEnd)) {
+        items[i].endAt = mustEnd;
+      }
+    } else {
       const startAt = addMinutes(items[i].endAt, travel);
       if (new Date(startAt) > new Date(items[i + 1].startAt)) {
-        const stay = Math.max(25, minutesBetween(items[i + 1].startAt, items[i + 1].endAt));
+        const rawStay = minutesBetween(items[i + 1].startAt, items[i + 1].endAt);
+        const stay = rawStay > 0 && rawStay <= 80 ? rawStay : 40;
         items[i + 1].startAt = startAt;
         items[i + 1].endAt = addMinutes(startAt, stay);
       }
     }
+    legs.push(
+      await legBetween(
+        { lat: a.lat, lng: a.lng, spotId: a.id, kind: "SPOT" },
+        { lat: b.lat, lng: b.lng, spotId: b.id, kind: "SPOT" },
+        items[i].endAt,
+      ),
+    );
   }
 
   if (items.length) {

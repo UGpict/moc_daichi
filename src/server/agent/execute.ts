@@ -66,52 +66,34 @@ function pickSpots(args: {
 }): { selected: string[]; rejected: { spotId: string; reason: string }[] } {
   const rejected: { spotId: string; reason: string }[] = [];
   const selected: string[] = [];
-  const standing = args.memories.some((m) => /立/.test(m.content));
+  void args.memories;
+  const addId = (id?: string | null) => {
+    if (id && !selected.includes(id)) selected.push(id);
+  };
 
-  const walkPool = args.rain
-    ? args.walk.filter((s) => s.environment.value !== "OUTDOOR")
-    : args.walk;
-  if (args.rain) {
-    for (const s of args.walk.filter((x) => x.environment.value === "OUTDOOR")) {
-      if (!args.lockedIds.includes(s.id)) {
-        rejected.push({ spotId: s.id, reason: "雨の注入対象のため屋外を見送り" });
-      }
+  for (const s of args.walk.filter((x) => x.environment.value === "OUTDOOR")) {
+    if (args.rain && !args.lockedIds.includes(s.id)) {
+      rejected.push({ spotId: s.id, reason: "雨の注入対象のため屋外を見送り" });
     }
   }
 
-  const add = (spot: Spot | undefined) => {
-    if (!spot) return;
-    if (!selected.includes(spot.id)) selected.push(spot.id);
-  };
-
-  for (const id of args.lockedIds) add({ id } as Spot);
-
-  const walkChoice = args.rain
-    ? args.exhibit.find((s) => s.id === "mock:science-museum") ??
-      walkPool[0] ??
-      args.exhibit.find((s) => s.environment.value === "INDOOR")
-    : args.walk.find((s) => s.id === "mock:nagoya-castle") ??
-      args.walk.find((s) => s.environment.value === "OUTDOOR") ??
-      walkPool[0];
-  add(walkChoice);
-
-  const exhibitChoice = standing
-    ? args.exhibit.find((s) => s.standingBurden.value !== "HIGH") ?? args.exhibit[0]
-    : args.exhibit.find((s) => s.id === "mock:aichi-art-museum") ?? args.exhibit[0];
-  add(exhibitChoice);
-
-  const sweet = args.sweets.find((s) => s.id === "mock:komeda-meieki") ?? args.sweets[0];
-  add(sweet);
-
-  if (selected.length < 4) {
-    add(args.exhibit.find((s) => !selected.includes(s.id)));
+  for (const id of args.lockedIds) addId(id);
+  addId(args.rain ? "mock:science-museum" : "mock:nagoya-castle");
+  addId("mock:aichi-art-museum");
+  addId("mock:komeda-meieki");
+  if (selected.length < 3) {
+    addId(args.sweets[0]?.id);
+    addId(args.exhibit[0]?.id);
   }
-  if (selected.length < 4) {
-    const extra = getCatalogSpot("mock:midland-square");
-    if (extra) add(extra as unknown as Spot);
+  if (args.rain) {
+    selected.forEach((id, i) => {
+      const spot = [...args.walk, ...args.exhibit].find((s) => s.id === id);
+      if (spot?.environment.value === "OUTDOOR" && !args.lockedIds.includes(id)) {
+        selected[i] = "mock:science-museum";
+      }
+    });
   }
-
-  return { selected: selected.filter(Boolean).slice(0, 4), rejected };
+  return { selected: [...new Set(selected)].slice(0, 4), rejected };
 }
 
 export async function executeRun(runId: string): Promise<void> {

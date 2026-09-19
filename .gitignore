@@ -44,3 +44,5 @@ test-results/
 .data/
 docs/reports/*.json
 !docs/reports/.gitkeep
+!docs/reports/demo-live.json
+!docs/reports/demo-five.json

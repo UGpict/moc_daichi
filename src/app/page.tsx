@@ -257,11 +257,11 @@ export default function HomePage() {
         {error ? <p className="mt-3 text-sm text-rose">{error}</p> : null}
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !me}
           onClick={() => void submit()}
           className="mt-6 w-full rounded-full bg-rose px-5 py-3 font-medium text-white hover:bg-rose-hover disabled:opacity-60"
         >
-          {busy ? "行程を組み立てています…" : "行程をつくる"}
+          {!me ? "準備中…" : busy ? "行程を組み立てています…" : "行程をつくる"}
         </button>
       </section>
     </main>

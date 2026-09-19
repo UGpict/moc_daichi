@@ -52,7 +52,13 @@ export function tokyoDateTime(date: string, hm: string): string {
 }
 
 export function addMinutes(iso: string, minutes: number): string {
-  return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
+  return toTokyoOffset(new Date(new Date(iso).getTime() + minutes * 60_000));
+}
+
+export function toTokyoOffset(date: Date): string {
+  const p = toTokyoParts(date.toISOString());
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${p.date}T${pad(p.hour)}:${pad(p.minute)}:00+09:00`;
 }
 
 export function minutesBetween(fromIso: string, toIso: string): number {

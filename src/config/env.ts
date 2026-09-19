@@ -7,7 +7,7 @@ function loadDotEnv() {
   if (g.__futariEnvLoaded) return;
   g.__futariEnvLoaded = true;
   for (const name of [".env.local", ".env"]) {
-    const file = resolve(process.cwd(), name);
+    const file = resolve(/* turbopackIgnore: true */ process.cwd(), name);
     if (!existsSync(file)) continue;
     for (const line of readFileSync(file, "utf8").split("\n")) {
       const trimmed = line.trim();

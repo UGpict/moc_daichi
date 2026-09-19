@@ -162,7 +162,11 @@ export async function startRun(input: {
       ["PENDING", "RUNNING", "WAITING_INPUT", "WAITING_APPROVAL"].includes(r.status),
     );
     if (active.length >= 1 && input.kind !== "REFLECTION") {
-      return { ok: false as const, status: 409, error: "concurrent run" };
+      return {
+        ok: false as const,
+        status: 409,
+        error: `concurrent run: ${active.map((r) => `${r.id}:${r.status}:${r.kind}`).join(",")}`,
+      };
     }
     const today = realNowIso().slice(0, 10);
     const countToday = Object.values(found.couple.sessions).reduce((n, b) => {

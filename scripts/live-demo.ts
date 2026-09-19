@@ -146,18 +146,28 @@ async function onePass(): Promise<Report> {
   if (snap1.plan?.openings?.some((o: { state: string }) => o.state === "CLOSED")) {
     failures.push("CLOSED present");
   }
-  notes.push(`validation=${snap1.plan?.validation?.state} items=${items.length}`);
+  notes.push(`first status=${first.view.run.status} validation=${snap1.plan?.validation?.state} items=${items.length} runs=${(snap1.runs as {id:string;status:string;kind:string}[]).map((r)=>r.kind+":"+r.status).join(",")}`);
+  if (snap1.plan?.validation?.state === "FAIL") {
+    failures.push(`initial validation FAIL: ${(snap1.plan.validation.issues as {code:string}[]).map((i)=>i.code).join(",")}`);
+  }
 
   await api(`/api/sessions/${session.sessionId}/progress`, {
     method: "POST",
     token,
     body: JSON.stringify({ confirm: true, status: "CONFIRMED" }),
   });
-  if (items[0]) {
+  const doneItem =
+    items.find((i: { locked: boolean; progress: string }) => i.locked) ?? items.at(-1);
+  if (doneItem) {
     await api(`/api/sessions/${session.sessionId}/progress`, {
       method: "POST",
       token,
-      body: JSON.stringify({ itemId: items[0].id, progress: "DONE", status: "IN_PROGRESS" }),
+      body: JSON.stringify({
+        itemId: doneItem.id,
+        progress: "DONE",
+        status: "IN_PROGRESS",
+        location: { lat: 35.170278, lng: 136.908611, label: "愛知県美術館" },
+      }),
     });
   }
 
@@ -169,11 +179,21 @@ async function onePass(): Promise<Report> {
   const rainWait = await waitRun(token, rain.runId);
   runIds.push(rain.runId);
   durationsMs.push(rainWait.ms);
-  const snapRain = await api(`/api/sessions/${session.sessionId}`, { token });
+  let snapRain = await api(`/api/sessions/${session.sessionId}`, { token });
   const auto = (snapRain.events as { type: string }[]).some((e) => e.type === "PLAN_AUTO_APPLIED");
-  const approval = (snapRain.approvals as { status: string }[]).some((a) => a.status === "PENDING");
+  const approval = (snapRain.approvals as { status: string; id: string; kind: string }[]).find(
+    (a) => a.status === "PENDING" && a.kind === "PLAN_APPLY",
+  );
   notes.push(auto ? "rain AUTO_NOTIFY" : approval ? "rain APPROVAL" : `rain status=${rainWait.view.run.status}`);
   if (!auto && !approval) failures.push("rain produced neither notify nor approval");
+  if (approval) {
+    await api(`/api/approvals/${approval.id}/decision`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({ decision: "APPROVE" }),
+    });
+    snapRain = await api(`/api/sessions/${session.sessionId}`, { token });
+  }
 
   const beforeDelayVersion = snapRain.session.currentPlanVersion;
   const delay = await api(`/api/sessions/${session.sessionId}/scenarios`, {
