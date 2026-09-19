@@ -102,8 +102,16 @@ export function getShirubeReport(state: DemoState): ShirubeReport {
   }
   if (areAnswersConfirmed(state.inquiryStatus) && state.track === "prep") {
     return {
-      message: "今回の質問の返事が揃いました。子どもに一枚で残せます。",
+      message: state.hasViewedFamily
+        ? "子どもに残す一枚の準備ができています。"
+        : "今回の質問の返事が揃いました。子どもに一枚で残せます。",
       next: "役所の手続きは、必要になったあとで見られます。",
+    };
+  }
+  if (!state.hasReviewedEstimate && state.inquiryStatus === "awaiting_approval") {
+    return {
+      message: "まず、見積もりの書いていないところを一緒に見ましょう。",
+      next: "希望はここに残してあります。分からない費用は、0円にはしません。",
     };
   }
   return {
