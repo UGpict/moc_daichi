@@ -4,7 +4,7 @@ import { PrimaryLink } from "@/components/ui";
 export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10">
-      <p className="text-sm font-medium tracking-wide text-forest">しるべ</p>
+      <p className="text-sm font-medium tracking-wide text-forest">SougiAgent</p>
       <h1 className="mt-3 text-[1.75rem] font-semibold leading-snug text-ink sm:text-3xl">
         家族が迷わない準備を、いま一緒に。
       </h1>

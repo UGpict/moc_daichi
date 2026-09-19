@@ -2,7 +2,7 @@ import { DEFAULT_DEMO_STATE } from "./sample-data";
 import type { DemoState, InquiryStatus, StayDays, TransportKm } from "./types";
 import { INQUIRY_STATUSES, STAY_DAY_OPTIONS, TRANSPORT_KM_OPTIONS } from "./types";
 
-export const STORAGE_KEY = "shirube-demo-v1";
+export const STORAGE_KEY = "sougi-agent-demo-v1";
 
 function isInquiryStatus(value: unknown): value is InquiryStatus {
   return (

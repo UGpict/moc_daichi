@@ -17,7 +17,7 @@ export function DemoHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { resetDemo } = useDemo();
-  const title = titles[pathname] ?? "しるべ";
+  const title = titles[pathname] ?? "SougiAgent";
 
   function handleReset() {
     resetDemo();
@@ -32,9 +32,11 @@ export function DemoHeader() {
           className="flex min-h-11 min-w-11 items-center gap-2 text-forest"
         >
           <Signpost className="h-5 w-5 shrink-0" aria-hidden />
-          <span className="text-base font-semibold tracking-wide">しるべ</span>
+          <span className="text-base font-semibold tracking-wide">SougiAgent</span>
         </Link>
-        <p className="min-w-0 truncate text-sm text-ink-soft">{title}</p>
+        <p className="hidden min-w-0 truncate text-sm text-ink-soft sm:block">
+          {title}
+        </p>
         <button
           type="button"
           onClick={handleReset}
