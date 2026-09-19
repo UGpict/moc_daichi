@@ -111,6 +111,10 @@ describe("share and family memory", () => {
     assert.equal(state.timePassed, true);
     assert.match(state.messages.at(-1)?.text ?? "", /確認しています/);
     assert.doesNotMatch(state.messages.at(-1)?.text ?? "", /ならこう望む/);
+    assert.equal(
+      state.messages.some((item) => item.text.includes("迷惑をかけたくない")),
+      false,
+    );
 
     state = applyTalkInput(state, "none");
     state = applyTalkInput(state, "apr16_evening");

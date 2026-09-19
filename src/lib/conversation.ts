@@ -137,6 +137,10 @@ function withTalk(
     talkStep: step,
     resumeStep: step === "paused" ? state.resumeStep : step,
     memories,
+    share:
+      step === "share"
+        ? { ...state.share, sharedWithKenichi: true }
+        : state.share,
     ...appendMessages(state, extras),
   };
 }
@@ -984,13 +988,21 @@ export function switchToFamilyView(state: DemoState): DemoState {
         ? "日程は家族に任せたい、と話されていました。本人の確認はまだです"
         : "日程の決め方は、まだ確認中でした";
 
+  const opening = `${FAMILY_HANDOVER_DATE}（デモ：時間が経ちました）。お母さまは、${whoText}。${scheduleText}。まず、現在どこまで手配できているか教えてください。`;
+  const messageSeq = state.messageSeq + 1;
+
   return {
-    ...withTalk(state, "family_status", [
+    ...state,
+    talkStep: "family_status",
+    resumeStep: "family_status",
+    messages: [
       {
+        id: `m-${messageSeq}`,
         from: "shirube",
-        text: `${FAMILY_HANDOVER_DATE}（デモ：時間が経ちました）。お母さまは、${whoText}。${scheduleText}。まず、現在どこまで手配できているか教えてください。`,
+        text: opening,
       },
-    ]),
+    ],
+    messageSeq,
     viewerRole: "family",
     timePassed: true,
     hasViewedFamily: true,
@@ -1382,7 +1394,9 @@ export function getFamilyPrepBook(state: DemoState): FamilyPrepBook {
     ],
     contacts: [
       `${FUNERAL_HOME.name}（${FUNERAL_HOME.fictionalNote}） ${FUNERAL_HOME.phone}／${FUNERAL_HOME.staff}`,
-      `${FAMILY.child}さんへ共有${state.share.sharedWithKenichi ? "済み（デモ）" : "前"}`,
+      `${FAMILY.child}さんへ共有${
+        state.timePassed || state.talkStep === "handover_ready" ? "済み（デモ）" : "する"
+      }`,
     ],
     estimate: pick(["external_fact"], ["prep"]),
     firstAction: [

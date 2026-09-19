@@ -40,7 +40,9 @@ export function TalkPanel({
       </div>
 
       <ol className="space-y-3">
-        {state.messages.map((message) => (
+        {state.messages
+          .filter((message) => state.viewerRole !== "family" || !message.private)
+          .map((message) => (
           <li
             key={message.id}
             className={`rounded-xl border px-4 py-3 text-base leading-relaxed ${

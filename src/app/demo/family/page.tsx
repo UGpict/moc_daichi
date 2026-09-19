@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { TalkPanel } from "@/components/talk-panel";
 import { useDemo } from "@/components/demo-provider";
 import {
@@ -21,10 +22,7 @@ export default function FamilyPage() {
   const book = getFamilyPrepBook(state);
   const proposal = buildFamilyScheduleProposal(state);
   const privateVisible = familyCanSeePrivateConsult(state);
-
-  function handleSubmit(value: string) {
-    applyTalk(value);
-  }
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -36,76 +34,19 @@ export default function FamilyPage() {
       </Notice>
 
       <Card>
-        <h2 className="text-xl font-semibold">本人の希望</h2>
+        <h2 className="text-xl font-semibold">本人の希望と、確認済みのこと</h2>
         <ul className="mt-3 list-disc space-y-2 pl-5 text-lg">
-          {book.wishes.length > 0 ? (
-            book.wishes.map((item) => <li key={item}>{item}</li>)
-          ) : (
-            <li>共有された希望はありません</li>
-          )}
-        </ul>
-        {book.reasons.length > 0 ? (
-          <p className="mt-3 text-base text-ink-soft">理由：{book.reasons.join("／")}</p>
-        ) : null}
-      </Card>
-
-      <Card>
-        <h2 className="text-xl font-semibold">確認済みの条件</h2>
-        <ul className="mt-3 list-disc space-y-2 pl-5 text-lg">
-          {book.confirmed.length > 0 ? (
-            book.confirmed.map((item) => <li key={item}>{item}</li>)
-          ) : (
-            <li>本人確認前の内容です</li>
-          )}
-        </ul>
-        {book.flexibility.length > 0 ? (
-          <p className="mt-3 text-base">家族に任せている範囲：{book.flexibility.join("／")}</p>
-        ) : null}
-      </Card>
-
-      <Card>
-        <h2 className="text-xl font-semibold">未決定のこと</h2>
-        <ul className="mt-3 list-disc space-y-2 pl-5 text-lg">
-          {book.undecided.length > 0 ? (
-            book.undecided.map((item) => <li key={item}>{item}</li>)
-          ) : (
-            <li>共有された未決定事項はありません</li>
-          )}
-        </ul>
-      </Card>
-
-      <Card>
-        <h2 className="text-xl font-semibold">相談先と、必要になったときの最初の行動</h2>
-        <ul className="mt-3 list-disc space-y-2 pl-5 text-lg">
-          {book.contacts.map((item) => (
+          {book.wishes.slice(0, 2).map((item) => (
             <li key={item}>{item}</li>
           ))}
-          {book.firstAction.map((item) => (
+          {book.flexibility.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-        {book.estimate.length > 0 ? (
-          <div className="mt-3">
-            <p className="text-base text-ink-soft">見積もりと確認できた事実（前提・確認日つき）</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              {book.estimate.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
         <p className="mt-3 text-base text-ink-soft">
-          契約・予約は、まだしていない前提です。{FUNERAL_HOME.name}の過去の見積額は、いまも有効とは限りません。
+          家族の判断は、この下の会話で残します。本人の言葉とは分けています。
         </p>
       </Card>
-
-      {!privateVisible ? (
-        <p className="text-base text-ink-soft">
-          私的な相談は、本人が選んでいないため、この画面には出ていません。
-        </p>
-      ) : (
-        <Notice>本人が選んだ私的な相談も、共有されています。</Notice>
-      )}
 
       <Card>
         <h2 className="text-xl font-semibold">家族の判断（本人の希望とは別）</h2>
@@ -140,7 +81,7 @@ export default function FamilyPage() {
       {state.viewerRole === "family" || state.timePassed ? (
         <TalkPanel
           state={state}
-          onSubmit={handleSubmit}
+          onSubmit={(value) => applyTalk(value)}
           speakerLabel="健一さん"
         />
       ) : (
@@ -148,14 +89,68 @@ export default function FamilyPage() {
       )}
 
       {state.talkStep === "family_ready" || state.familyJudgment.acceptedProposal ? (
-        <div className="flex flex-col gap-2">
-          <PrimaryLink
-            href="/demo/procedure"
-            onClick={() => startProcedure(true)}
-          >
-            手続きの不足を確認する
-          </PrimaryLink>
-        </div>
+        <PrimaryLink href="/demo/procedure" onClick={() => startProcedure(true)}>
+          手続きの不足を確認する
+        </PrimaryLink>
+      ) : null}
+
+      <button
+        type="button"
+        className="text-base font-medium text-forest underline-offset-2 hover:underline"
+        onClick={() => setDetailsOpen((open) => !open)}
+      >
+        {detailsOpen ? "詳細資料を閉じる" : "詳細資料と確認の根拠を見る"}
+      </button>
+
+      {detailsOpen ? (
+        <>
+          <Card>
+            <h2 className="text-xl font-semibold">確認済みの条件</h2>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-lg">
+              {book.confirmed.length > 0 ? (
+                book.confirmed.map((item) => <li key={item}>{item}</li>)
+              ) : (
+                <li>本人確認前の内容です</li>
+              )}
+            </ul>
+          </Card>
+          <Card>
+            <h2 className="text-xl font-semibold">未決定のこと</h2>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-lg">
+              {book.undecided.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </Card>
+          <Card>
+            <h2 className="text-xl font-semibold">相談先と、必要になったときの最初の行動</h2>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-lg">
+              {book.contacts.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+              {book.firstAction.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            {book.estimate.length > 0 ? (
+              <ul className="mt-3 list-disc space-y-1 pl-5">
+                {book.estimate.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="mt-3 text-base text-ink-soft">
+              契約・予約は、まだしていない前提です。{FUNERAL_HOME.name}の過去の見積額は、いまも有効とは限りません。
+            </p>
+          </Card>
+          {!privateVisible ? (
+            <p className="text-base text-ink-soft">
+              私的な相談は、本人が選んでいないため、この画面には出ていません。
+            </p>
+          ) : (
+            <Notice>本人が選んだ私的な相談も、共有されています。</Notice>
+          )}
+        </>
       ) : null}
 
       <SecondaryLink href="/demo/share">共有内容に戻る</SecondaryLink>
