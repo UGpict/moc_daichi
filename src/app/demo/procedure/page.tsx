@@ -45,7 +45,7 @@ export default function ProcedurePage() {
   if (!inProcedure) {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <PageTitle eyebrow="家族への引継ぎ・手続き">
+        <PageTitle eyebrow="必要になったときの手続き">
           事前準備の内容を引き継いで始めます
         </PageTitle>
         <Notice>
@@ -57,7 +57,7 @@ export default function ProcedurePage() {
         >
           手続きデモを始める
         </PrimaryButton>
-        <SecondaryLink href="/demo">案件ホームに戻る</SecondaryLink>
+        <SecondaryLink href="/demo">準備に戻る</SecondaryLink>
       </div>
     );
   }
@@ -316,7 +316,7 @@ export default function ProcedurePage() {
       </Card>
 
       <StickyActions>
-        <SecondaryLink href="/demo">案件ホームに戻る</SecondaryLink>
+        <SecondaryLink href="/demo">準備に戻る</SecondaryLink>
         <SecondaryLink href="/demo/family">家族向け画面を見る</SecondaryLink>
       </StickyActions>
 

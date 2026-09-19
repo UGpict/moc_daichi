@@ -29,28 +29,28 @@ export default function SummaryPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <PageTitle eyebrow="費用の整理">確認した条件で、参考額を見る</PageTitle>
+      <PageTitle eyebrow="子どもに残す一枚">分かった条件で、目安の金額を見る</PageTitle>
 
       {!confirmed ? (
         <>
           <Notice>
-            追加費用の条件がまだ揃っていないため、参考合計は表示しません。不明な項目を0円としては扱いません。
+            分からない費用が残っているので、合計はまだ出しません。書いていない項目を0円にはしません。
           </Notice>
           <StickyActions>
-            <PrimaryLink href="/demo/agent">問い合わせを続ける</PrimaryLink>
-            <SecondaryLink href="/demo">準備ホームに戻る</SecondaryLink>
+            <PrimaryLink href="/demo/agent">確認を続ける</PrimaryLink>
+            <SecondaryLink href="/demo">準備に戻る</SecondaryLink>
           </StickyActions>
         </>
       ) : (
         <>
           <Card>
-            <h2 className="text-lg font-semibold">条件を変えてみる</h2>
-            <p className="mt-2 text-sm text-ink-soft">
-              安置延長は2日を超えた分だけ加算します。搬送は20kmを超えた分を10km単位で切り上げます。
+            <h2 className="text-xl font-semibold">条件を変えてみる</h2>
+            <p className="mt-2 text-base text-ink-soft">
+              安置は2日を超えた分だけ足します。搬送は20kmを超えた分を、10kmごとに切り上げます。
             </p>
             <div className="mt-4 space-y-4">
               <label className="block">
-                <span className="text-sm font-medium">安置日数</span>
+                <span className="text-base font-medium">安置日数</span>
                 <select
                   className="mt-1 min-h-11 w-full rounded-lg border border-line bg-card px-3 text-base"
                   value={state.conditions.stayDays}
@@ -69,7 +69,7 @@ export default function SummaryPage() {
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium">搬送距離</span>
+                <span className="text-base font-medium">搬送距離</span>
                 <select
                   className="mt-1 min-h-11 w-full rounded-lg border border-line bg-card px-3 text-base"
                   value={state.conditions.transportKm}
@@ -88,7 +88,7 @@ export default function SummaryPage() {
               </label>
 
               <fieldset>
-                <legend className="text-sm font-medium">夜間搬送</legend>
+                <legend className="text-base font-medium">夜間搬送</legend>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -118,9 +118,9 @@ export default function SummaryPage() {
           </Card>
 
           <Card>
-            <h2 className="text-lg font-semibold">参考額の内訳</h2>
-            <p className="mt-2 text-sm text-ink-soft">
-              初期条件は、安置4日・搬送30km・日中搬送・飲食返礼品20名分です。
+            <h2 className="text-xl font-semibold">目安の内訳</h2>
+            <p className="mt-2 text-base text-ink-soft">
+              最初の条件は、安置4日・搬送30km・日中搬送・飲食返礼品20名分です。
             </p>
             <dl className="mt-4 divide-y divide-line border-y border-line">
               {breakdown.lines.map((line) => (
@@ -130,7 +130,7 @@ export default function SummaryPage() {
                 >
                   <dt>
                     <p>{line.label}</p>
-                    <p className="text-sm text-ink-soft">{line.note}</p>
+                    <p className="text-base text-ink-soft">{line.note}</p>
                   </dt>
                   <dd className="shrink-0 font-medium tabular-nums">
                     {formatYen(line.amount)}
@@ -138,25 +138,25 @@ export default function SummaryPage() {
                 </div>
               ))}
               <div className="flex items-start justify-between gap-3 py-3">
-                <dt className="font-semibold">参考合計</dt>
+                <dt className="font-semibold">目安の合計</dt>
                 <dd className="text-lg font-semibold tabular-nums">
                   {formatYen(breakdown.total)}
                 </dd>
               </div>
             </dl>
             <p className="mt-3 text-base">
-              当初の見積額（基本プラン{formatYen(RATES.basePlan)}
-              ）との差{formatYen(difference)}は、確認した条件を加えた差額です。
+              最初の見積額（基本プラン{formatYen(RATES.basePlan)}
+              ）との差{formatYen(difference)}は、分かった条件を足した差額です。
             </p>
           </Card>
 
           <Notice>
-            これは架空の条件に基づく参考額です。宗教者への謝礼など含まれない費用があります。将来の価格や空き状況は保証されません。実際に必要になった際に、改めて確認してください。確認日は
+            架空の条件に基づく目安です。宗教者への謝礼など、含まれない費用があります。将来の価格や空きは保証されません。必要になったときに、改めて確認してください。確認日は
             {CONFIRMATION_DATE}（架空）です。
           </Notice>
 
           <Card>
-            <h2 className="text-lg font-semibold">含まれない費用</h2>
+            <h2 className="text-xl font-semibold">含まれない費用</h2>
             <ul className="mt-3 list-disc space-y-1 pl-5">
               {EXCLUDED_COSTS.map((item) => (
                 <li key={item}>{item}</li>
@@ -165,7 +165,7 @@ export default function SummaryPage() {
           </Card>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold">家族に残す準備書</h2>
+            <h2 className="text-xl font-semibold">子どもに残す一枚</h2>
             <FamilyDocument
               conditions={state.conditions}
               breakdown={breakdown}
@@ -173,8 +173,8 @@ export default function SummaryPage() {
           </section>
 
           <StickyActions>
-            <PrimaryLink href="/demo/family">家族から見た画面を開く</PrimaryLink>
-            <SecondaryLink href="/demo">準備ホームに戻る</SecondaryLink>
+            <PrimaryLink href="/demo/family">子どもが見る画面を開く</PrimaryLink>
+            <SecondaryLink href="/demo">準備に戻る</SecondaryLink>
           </StickyActions>
         </>
       )}

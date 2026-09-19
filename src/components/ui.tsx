@@ -2,10 +2,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 const primaryClassName =
-  "inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-forest px-4 text-center text-base font-medium text-white transition-colors hover:bg-forest-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest disabled:cursor-not-allowed disabled:bg-forest/40";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-forest px-4 text-center text-lg font-medium text-white transition-colors hover:bg-forest-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest disabled:cursor-not-allowed disabled:bg-forest/40";
 
 const secondaryClassName =
-  "inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line bg-card px-4 text-center text-base font-medium text-forest transition-colors hover:bg-forest-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest";
+  "inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-line bg-card px-4 text-center text-lg font-medium text-forest transition-colors hover:bg-forest-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest";
 
 export function PrimaryButton({
   children,
@@ -93,9 +93,9 @@ export function PageTitle({
   return (
     <header className="space-y-2">
       {eyebrow ? (
-        <p className="text-sm font-medium text-forest">{eyebrow}</p>
+        <p className="text-base font-medium text-forest">{eyebrow}</p>
       ) : null}
-      <h1 className="text-2xl font-semibold leading-snug text-ink sm:text-[1.75rem]">
+      <h1 className="text-[1.75rem] font-semibold leading-snug text-ink sm:text-3xl">
         {children}
       </h1>
     </header>
@@ -112,7 +112,7 @@ export function StickyActions({ children }: { children: ReactNode }) {
 
 export function Notice({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-lg bg-paper-deep px-3 py-3 text-sm leading-relaxed text-ink-soft">
+    <p className="rounded-lg bg-paper-deep px-4 py-3 text-base leading-relaxed text-ink-soft">
       {children}
     </p>
   );

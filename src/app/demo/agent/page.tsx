@@ -46,7 +46,7 @@ function MessageBubble({
           : "border-line bg-card"
       }`}
     >
-      <p className="flex items-center gap-2 text-sm font-medium text-forest">
+      <p className="flex items-center gap-2 text-base font-medium text-forest">
         {isUser ? (
           <MessageCircle className="h-4 w-4" aria-hidden />
         ) : (
@@ -54,7 +54,7 @@ function MessageBubble({
         )}
         {isUser
           ? `${FUNERAL_HOME.name}への質問`
-          : `${FUNERAL_HOME.name}からの返信（デモ）`}
+          : `${FUNERAL_HOME.name}からの返事（体験）`}
       </p>
       <div className="mt-2 whitespace-pre-wrap text-base leading-relaxed">
         {children}
@@ -74,36 +74,36 @@ export default function InquiryPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <PageTitle eyebrow="葬儀社への問い合わせ">
-        追加費用の条件を確認する
+      <PageTitle eyebrow="聞いてよいか確認">
+        この内容で、葬儀社に聞いてよいですか
       </PageTitle>
       <Notice>
-        この体験では、あらかじめ用意したやりとりを、あなたの操作で順に進めます。実際の問い合わせは行いません。
+        あらかじめ用意したやりとりを、あなたの操作で進めます。実際の問い合わせは行いません。
       </Notice>
 
       <Card>
-        <h2 className="text-lg font-semibold">問い合わせの内容</h2>
+        <h2 className="text-xl font-semibold">聞く内容</h2>
         <dl className="mt-3 space-y-2 text-base">
           <div>
-            <dt className="text-sm text-ink-soft">宛先</dt>
+            <dt className="text-base text-ink-soft">宛先</dt>
             <dd>
               {FUNERAL_HOME.name}（{FUNERAL_HOME.fictionalNote}）
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-ink-soft">目的</dt>
-            <dd>追加費用の条件を確認</dd>
+            <dt className="text-base text-ink-soft">目的</dt>
+            <dd>書いていない費用の条件を確認</dd>
           </div>
           <div>
-            <dt className="text-sm text-ink-soft">状態</dt>
+            <dt className="text-base text-ink-soft">いまの状態</dt>
             <dd>
               {inquiryStatus === "awaiting_approval"
-                ? "質問の確認待ち（まだ送っていません）"
+                ? "まだ聞いていません。内容を見て決めてください"
                 : waiting
-                  ? "返信待ち（デモ）"
+                  ? "返事を待っています（体験）"
                   : gotFollowup
-                    ? "回答を確認済み"
-                    : "返信の確認"}
+                    ? "返事が揃いました"
+                    : "返事の確認"}
             </dd>
           </div>
         </dl>
@@ -114,14 +114,14 @@ export default function InquiryPage() {
           {FIRST_QUESTION_BODY}
           {!sentFirst ? (
             <p className="mt-3 text-sm font-medium text-amber">
-              この内容は、まだ問い合わせていません。
+              この内容は、まだ聞いていません。
             </p>
           ) : null}
         </MessageBubble>
 
         {inquiryStatus === "awaiting_first_reply" ? (
           <p className="rounded-xl border border-line bg-card px-4 py-3 text-base text-ink-soft">
-            葬儀社からの返信を待っています…
+            葬儀社からの返事を待っています…
           </p>
         ) : null}
 
@@ -132,17 +132,17 @@ export default function InquiryPage() {
         {gotFirst && !gotFollowup ? (
           <div className="rounded-xl border border-amber/30 bg-amber-soft p-4">
             <p className="text-base font-semibold text-amber">
-              返信が届きました。搬送の追加料金は、まだ確認が必要です。
+              返事は届きました。搬送の追加料金は、まだ分かっていません。
             </p>
-            <p className="mt-2 text-sm text-ink">
-              「距離や状況による」だけでは、追加額を計算できません。
+            <p className="mt-2 text-base text-ink">
+              「距離や状況による」だけでは、いくらかかるか計算できません。
             </p>
           </div>
         ) : null}
 
         {gotFirst ? (
           <Card>
-            <h2 className="text-lg font-semibold">確認項目の進み具合</h2>
+            <h2 className="text-xl font-semibold">分かったこと・まだ分からないこと</h2>
             <ul className="mt-3 space-y-3">
               {CHECK_ITEMS.map((item) => {
                 const status = getCheckItemStatus(item.id, inquiryStatus);
@@ -165,7 +165,7 @@ export default function InquiryPage() {
             {FOLLOWUP_QUESTION_BODY}
             {!sentFollowup ? (
               <p className="mt-3 text-sm font-medium text-amber">
-                この再質問は、まだ送っていません。
+                この確認は、まだ聞いていません。
               </p>
             ) : null}
           </MessageBubble>
@@ -173,7 +173,7 @@ export default function InquiryPage() {
 
         {inquiryStatus === "awaiting_followup_reply" ? (
           <p className="rounded-xl border border-line bg-card px-4 py-3 text-base text-ink-soft">
-            再質問への返信を待っています…
+            もう一度聞いた内容の返事を待っています…
           </p>
         ) : null}
 
@@ -182,10 +182,10 @@ export default function InquiryPage() {
             <MessageBubble from="home">{FOLLOWUP_REPLY_BODY}</MessageBubble>
             <div className="rounded-xl border border-forest/20 bg-forest-soft p-4">
               <p className="text-base font-semibold text-forest">
-                今回の質問4件に回答が揃いました
+                今回の質問4件の返事が揃いました
               </p>
-              <p className="mt-2 text-sm text-ink">
-                確認できた条件から参考額を出せます。将来の総額が保証されたわけではありません。
+              <p className="mt-2 text-base text-ink">
+                分かった条件から、目安の金額を出せます。将来の総額が決まったわけではありません。
               </p>
             </div>
           </>
@@ -195,21 +195,21 @@ export default function InquiryPage() {
       <StickyActions>
         {inquiryStatus === "awaiting_approval" ? (
           <PrimaryButton type="button" onClick={() => applyAction("approve_inquiry")}>
-            この内容で問い合わせる（デモ）
+            この内容で聞いてよい
           </PrimaryButton>
         ) : null}
         {inquiryStatus === "awaiting_followup_approval" ? (
           <PrimaryButton type="button" onClick={() => applyAction("approve_followup")}>
-            再質問する（デモ）
+            もう一度聞いてよい
           </PrimaryButton>
         ) : null}
         {waiting ? (
           <PrimaryButton type="button" disabled>
-            返信を待っています
+            返事を待っています
           </PrimaryButton>
         ) : null}
         {gotFollowup ? (
-          <PrimaryLink href="/demo/summary">費用と準備書を見る</PrimaryLink>
+          <PrimaryLink href="/demo/summary">子どもに残す一枚を見る</PrimaryLink>
         ) : null}
         <SecondaryLink href="/demo/estimate">見積もりに戻る</SecondaryLink>
       </StickyActions>

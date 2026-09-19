@@ -13,10 +13,9 @@ export function ShirubeReport() {
       <div className="flex items-start gap-3">
         <ShirubeAvatar size={48} />
         <div className="min-w-0">
-          <p className="text-sm font-medium text-forest">しるべさん／AIサポート</p>
-          <h2 className="mt-1 text-base font-semibold">しるべさんからの報告</h2>
-          <p className="mt-2 text-base leading-relaxed">{report.message}</p>
-          <p className="mt-2 text-sm text-ink-soft">{report.next}</p>
+          <p className="text-base font-medium text-forest">しるべさん／AIサポート</p>
+          <p className="mt-2 text-lg leading-relaxed">{report.message}</p>
+          <p className="mt-2 text-base text-ink-soft">{report.next}</p>
         </div>
       </div>
     </section>

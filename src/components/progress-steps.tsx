@@ -19,12 +19,12 @@ export function ProgressSteps({ steps }: { steps: ProgressStep[] }) {
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-base font-medium text-ink">{step.label}</p>
+              <p className="text-lg font-medium text-ink">{step.label}</p>
               <StatusLabel
                 status={
                   step.status === "done"
                     ? "confirmed"
-                    : step.statusLabel === "回答待ち"
+                    : step.statusLabel === "返事待ち" || step.statusLabel === "回答待ち"
                       ? "waiting"
                       : "unconfirmed"
                 }

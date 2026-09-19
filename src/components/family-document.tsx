@@ -21,7 +21,7 @@ export function FamilyDocument({
   return (
     <div className="space-y-4">
       <Card>
-        <h2 className="text-lg font-semibold">本人が大切にしたいこと</h2>
+        <h2 className="text-xl font-semibold">本人が大切にしたいこと</h2>
         <p className="mt-2 text-base">
           {FAMILY.principal}さんは、{WISHES.style}を希望しています。予算の目安は
           {formatYen(WISHES.budgetYen)}です。
@@ -34,7 +34,7 @@ export function FamilyDocument({
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold">準備できていること</h2>
+        <h2 className="text-xl font-semibold">準備できていること</h2>
         <ul className="mt-3 list-disc space-y-1 pl-5">
           <li>一日葬の希望と、会葬者の目安（約20名）を共有している</li>
           <li>
@@ -46,7 +46,7 @@ export function FamilyDocument({
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold">まだ決まっていないこと</h2>
+        <h2 className="text-xl font-semibold">まだ決まっていないこと</h2>
         <ul className="mt-3 list-disc space-y-1 pl-5">
           {UNDECIDED_ITEMS.map((item) => (
             <li key={item}>{item}</li>
@@ -58,7 +58,7 @@ export function FamilyDocument({
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold">費用の目安と前提</h2>
+        <h2 className="text-xl font-semibold">費用の目安と前提</h2>
         <p className="mt-2 text-base">
           確認日：{CONFIRMATION_DATE}（架空の確認日です）
         </p>
@@ -96,7 +96,7 @@ export function FamilyDocument({
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-xl font-semibold">
           必要になったときの確認先・確認事項
         </h2>
         <p className="mt-2 text-base">
