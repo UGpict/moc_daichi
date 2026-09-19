@@ -53,20 +53,22 @@ function asCandidates(value: unknown): unknown {
     const o = item as Record<string, unknown>;
     const pick = (key: string, allowed: string[], fallback: string) =>
       allowed.includes(String(o[key])) ? o[key] : fallback;
-    return {
-      ...o,
-      subject: pick("subject", ["SELF", "PARTNER", "BOTH"], "PARTNER"),
-      type: pick("type", ["CARE", "PREFERENCE", "CONSTRAINT"], "PREFERENCE"),
-      content: String(o.content ?? ""),
-      sourceType: pick(
-        "sourceType",
-        ["SELF_REPORT", "PARTNER_STATEMENT_REPORTED", "OBSERVATION", "HYPOTHESIS"],
-        "OBSERVATION",
-      ),
-      evidenceQuote: String(o.evidenceQuote ?? o.content ?? ""),
-      strength: pick("strength", ["SOFT", "HARD"], "SOFT"),
-      scope: pick("scope", ["NEXT_DATE", "ONGOING"], "NEXT_DATE"),
-    };
+      const content = String(o.content ?? o.text ?? o.summary ?? o.description ?? o.memory ?? "");
+      const evidenceQuote = String(o.evidenceQuote ?? o.quote ?? o.evidence ?? content);
+      return {
+        ...o,
+        subject: pick("subject", ["SELF", "PARTNER", "BOTH"], "PARTNER"),
+        type: pick("type", ["CARE", "PREFERENCE", "CONSTRAINT"], "PREFERENCE"),
+        content: content || evidenceQuote,
+        sourceType: pick(
+          "sourceType",
+          ["SELF_REPORT", "PARTNER_STATEMENT_REPORTED", "OBSERVATION", "HYPOTHESIS"],
+          "OBSERVATION",
+        ),
+        evidenceQuote: evidenceQuote || content,
+        strength: pick("strength", ["SOFT", "HARD"], "SOFT"),
+        scope: pick("scope", ["NEXT_DATE", "ONGOING"], "NEXT_DATE"),
+      };
   });
 }
 

@@ -218,6 +218,28 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
       found.couple.memoryCandidates[cid] = candidate;
       storedCandidates.push(candidate);
     }
+    if (!storedCandidates.length && masked.trim().length >= 2) {
+      const cid = newId("mc");
+      const candidate: MemoryCandidate = {
+        id: cid,
+        coupleId: found.couple.couple.id,
+        sessionId: found.bundle.session.id,
+        reflectionId,
+        answerId: null,
+        subject: "BOTH",
+        type: /疲|立|歩/.test(masked) ? "CARE" : "PREFERENCE",
+        content: masked.slice(0, 120),
+        sourceType: "OBSERVATION",
+        evidenceQuote: masked.slice(0, 80),
+        strength: "SOFT",
+        scope: "NEXT_DATE",
+        createdAt: realNowIso(),
+      };
+      if (validateMemoryCandidate(candidate).ok) {
+        found.couple.memoryCandidates[cid] = candidate;
+        storedCandidates.push(candidate);
+      }
+    }
   });
 
   if (data.clarification) {
