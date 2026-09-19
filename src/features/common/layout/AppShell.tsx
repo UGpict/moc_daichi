@@ -27,7 +27,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
           </Link>
         </div>
       </header>
-      <div className="flex-1 px-4 pb-28 pt-4 lg:px-6">{children}</div>
+      <div className="flex-1 px-4 pb-44 pt-4 lg:px-6">{children}</div>
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 backdrop-blur">
         <div className="mx-auto grid max-w-[440px] grid-cols-3 lg:max-w-[1120px]">
           {NAV.map((item) => {

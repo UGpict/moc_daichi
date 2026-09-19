@@ -71,6 +71,7 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
   );
 
   return (
+    <>
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
       <div className="space-y-4">
         <div>
@@ -124,7 +125,16 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
               {data.session.input.preferences.map((p) => (
                 <li key={p.id}>
                   <span className="text-ink-soft">
-                    {p.subject === "SELF" ? "自分" : p.subject === "PARTNER" ? "相手（伝聞）" : "両方"} / {p.priority}
+                    {p.subject === "SELF"
+                      ? "自分の希望"
+                      : p.subject === "BOTH"
+                        ? "二人とも"
+                        : p.source === "OBSERVATION"
+                          ? "相手（観察）"
+                          : p.source === "PARTNER_STATEMENT_REPORTED"
+                            ? "相手（伝聞）"
+                            : "相手の希望"}{" "}
+                    / {p.priority}
                   </span>
                   <div>{p.content}</div>
                 </li>
@@ -334,7 +344,7 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
         </Card>
       </div>
 
-      <aside className="mt-6 lg:mt-0">
+      <aside className="mt-6 lg:sticky lg:top-20 lg:mt-0 lg:self-start">
         <button
           type="button"
           className="mb-2 text-sm text-rose lg:hidden"
@@ -354,7 +364,8 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
           </ol>
         </Card>
       </aside>
-      <CostBadge llmJpy={cost.llm} apiJpy={cost.api} hard={cost.hard} mundane={cost.mundane} unaccounted={cost.unaccounted} />
     </div>
+    <CostBadge llmJpy={cost.llm} apiJpy={cost.api} hard={cost.hard} mundane={cost.mundane} unaccounted={cost.unaccounted} />
+    </>
   );
 }
