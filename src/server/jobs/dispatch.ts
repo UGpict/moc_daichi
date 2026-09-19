@@ -30,6 +30,23 @@ export type EnqueueResult = {
   detail: string;
 };
 
+const retryScheduled = new Set<string>();
+
+/** HTTP 起動の取りこぼし用。poller では何もしない。実行中の最初からやり直しはしない。 */
+export function scheduleEnqueueRetry(runId: string) {
+  if (jobDispatchMode() === "poller") return;
+  if (retryScheduled.has(runId)) return;
+  retryScheduled.add(runId);
+  const delays = [1_500, 6_000, 15_000];
+  for (const ms of delays) {
+    setTimeout(() => {
+      void enqueueRun(runId).catch((error) => {
+        console.error("job retry", maskSecrets(String(error)));
+      });
+    }, ms);
+  }
+}
+
 export async function enqueueRun(
   runId: string,
   deps: { fetchFn?: typeof fetch } = {},

@@ -22,6 +22,7 @@
 - ローカル LIVE は `gcloud auth application-default login` のユーザー ADC。`GOOGLE_APPLICATION_CREDENTIALS` や service_account 必須チェックはしない
 - Cloud Agent は Firebase Auth/Firestore Emulator（projectId `futari-log-dev`）。未起動なら本番へ繋がない。Emulator 成功と LIVE 成功は別集計
 - Cloud Run は常駐 worker を載せない。`POST /api/internal/jobs` で起動。lease / fencing / 承認トランザクションを維持。鍵ファイルなし（実行 SA の ADC）
+- 画面の集計バナーは persist / LLM / Places / Routes を個別表示する。EMULATOR を「モック実行」と書かない
 
 ## 検証済み
 

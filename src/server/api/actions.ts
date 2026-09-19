@@ -1,6 +1,6 @@
 import { DEADLINES_MS, SCHEMA_VERSION, PROMPT_VERSION, TOOL_VERSION, MODEL_SETTINGS_VERSION } from "@/config/settings";
 import { getEnv, providerModes, publicBlockers } from "@/config/env";
-import { enqueueRun } from "@/server/jobs/dispatch";
+import { enqueueRun, scheduleEnqueueRetry } from "@/server/jobs/dispatch";
 import { maskSecrets } from "@/server/security/logMask";
 import {
   planningInputSchema,
@@ -284,9 +284,14 @@ export async function startRun(input: {
     return { ok: true as const, duplicated: false, runId: id };
   }, { sessionId: input.sessionId, idempotencyKey: input.idempotencyKey ?? undefined });
   if (result.ok && result.runId) {
-    void enqueueRun(result.runId).catch((error) => {
-      console.error("job enqueue", maskSecrets(String(error)));
-    });
+    void enqueueRun(result.runId)
+      .then((enqueued) => {
+        if (!enqueued.accepted) scheduleEnqueueRetry(result.runId);
+      })
+      .catch((error) => {
+        scheduleEnqueueRetry(result.runId);
+        console.error("job enqueue", maskSecrets(String(error)));
+      });
   }
   return result;
 }

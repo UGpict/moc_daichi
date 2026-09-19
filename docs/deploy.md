@@ -77,6 +77,26 @@ gcloud iam service-accounts create futari-log-run \
   --display-name="futari-log Cloud Run"
 
 # 鍵は作らない。create-key しない。
+# keys create は使わない。
+
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:futari-log-run@<PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/datastore.user"
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:futari-log-run@<PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/firebaseauth.admin"
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:futari-log-run@<PROJECT_ID>.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+# Cloud Tasks を使うときだけ:
+# gcloud projects add-iam-policy-binding <PROJECT_ID> \
+#   --member="serviceAccount:futari-log-run@<PROJECT_ID>.iam.gserviceaccount.com" \
+#   --role="roles/cloudtasks.enqueuer"
+
+# Worker サービスへ Web から呼ぶ権限（デプロイ後）
+# gcloud run services add-iam-policy-binding futari-log-worker \
+#   --member="serviceAccount:futari-log-run@<PROJECT_ID>.iam.gserviceaccount.com" \
+#   --role="roles/run.invoker"
 
 gcloud builds submit --tag <REGION>-docker.pkg.dev/<PROJECT_ID>/futari/futari-log
 
@@ -84,13 +104,15 @@ gcloud run deploy futari-log-worker \
   --image <REGION>-docker.pkg.dev/<PROJECT_ID>/futari/futari-log \
   --service-account futari-log-run@<PROJECT_ID>.iam.gserviceaccount.com \
   --timeout 300 \
-  --set-env-vars APP_RUNTIME=LIVE,WORKER_MODE=http \
+  --env-vars-file deploy/cloudrun.env.yaml \
+  --set-env-vars WORKER_MODE=http \
   --set-secrets ORCAROUTER_API_KEY=ORCAROUTER_API_KEY:latest,GOOGLE_MAPS_API_KEY=GOOGLE_MAPS_API_KEY:latest,WORKER_SHARED_SECRET=WORKER_SHARED_SECRET:latest
 
 gcloud run deploy futari-log \
   --image <REGION>-docker.pkg.dev/<PROJECT_ID>/futari/futari-log \
   --service-account futari-log-run@<PROJECT_ID>.iam.gserviceaccount.com \
-  --set-env-vars APP_RUNTIME=LIVE,WORKER_MODE=http,WORKER_INVOKE_URL=https://<worker-url> \
+  --env-vars-file deploy/cloudrun.env.yaml \
+  --set-env-vars WORKER_MODE=http,WORKER_INVOKE_URL=https://<worker-url> \
   --set-secrets ORCAROUTER_API_KEY=ORCAROUTER_API_KEY:latest,GOOGLE_MAPS_API_KEY=GOOGLE_MAPS_API_KEY:latest,WORKER_SHARED_SECRET=WORKER_SHARED_SECRET:latest
 ```
 

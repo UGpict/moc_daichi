@@ -1,3 +1,5 @@
+import { countedAsLabel, providersLine, type ProvidersView } from "@/domain/demo/providersDisplay";
+
 export function SourceChip({ kind }: { kind: string }) {
   const label: Record<string, string> = {
     API: "取得",
@@ -16,6 +18,8 @@ export function SourceChip({ kind }: { kind: string }) {
 
 export function ModeBanner(props: {
   runtime: string;
+  countedAs?: string;
+  providers?: ProvidersView | null;
   mode?: string;
   overlays?: string[];
   replay?: boolean;
@@ -27,16 +31,19 @@ export function ModeBanner(props: {
       </div>
     );
   }
-  const live = props.runtime === "LIVE";
+  const counted = props.countedAs ?? props.runtime;
+  const live = counted === "LIVE";
+  const emulator = counted === "EMULATOR";
+  const line = providersLine(props.providers);
   return (
     <div
-      className={`rounded-xl px-4 py-2 text-sm ${live ? "bg-moss-soft text-moss" : "bg-amber-soft text-amber"}`}
+      className={`rounded-xl px-4 py-2 text-sm ${live ? "bg-moss-soft text-moss" : emulator ? "bg-paper-deep text-ink" : "bg-amber-soft text-amber"}`}
     >
-      {live ? "LIVE" : "モック実行"}
+      <p>集計 {countedAsLabel(counted)}</p>
+      {line ? <p className="mt-1 text-xs opacity-90">{line}</p> : null}
       {props.mode === "LIVE_SCENARIO" || (props.overlays && props.overlays.length > 0)
         ? ` ＋シナリオ注入（${(props.overlays ?? []).join("、") || "あり"}）`
         : null}
-      {!live ? " — 実在スポットのカタログを使います。Google / OrcaRouter のライブ応答ではありません。" : null}
     </div>
   );
 }

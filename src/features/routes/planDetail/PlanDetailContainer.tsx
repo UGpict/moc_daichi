@@ -82,11 +82,20 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
             {data.session.status} / 行程 v{data.plan?.version ?? "—"} / 検証 {data.plan?.validation.state ?? "—"}
           </p>
         </div>
-        <ModeBanner runtime={data.runtime} mode={latestRun?.mode} overlays={data.overlays} />
+        <ModeBanner
+          runtime={data.runtime}
+          countedAs={data.countedAs}
+          providers={data.providers}
+          mode={latestRun?.mode}
+          overlays={data.overlays}
+        />
         {actionError ? <p className="text-sm text-rose">{actionError}</p> : null}
         {generating ? (
           <Card className="bg-paper-deep">
-            <p className="text-sm">行程を組み立てています。朝の一回取得があればそれを使い、都度探している演出ではありません。</p>
+            <p className="text-sm">
+              {latestRun?.status === "PENDING" ? "ジョブ起動待ち。" : "実行中。"}
+              行程を組み立てています。朝の一回取得があればそれを使い、都度探している演出ではありません。
+            </p>
             <ol className="mt-2 space-y-1 text-sm">
               {data.events.slice(-6).map((e) => (
                 <li key={e.eventId}>{PROGRESS_LABEL[e.type] ?? e.type}: {e.summary}</li>

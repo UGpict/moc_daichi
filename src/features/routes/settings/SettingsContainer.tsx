@@ -23,10 +23,16 @@ export function SettingsContainer() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">設定</h1>
-      <ModeBanner runtime={me.runtime} />
+      <ModeBanner runtime={me.runtime} countedAs={me.countedAs} providers={me.providers} />
       <Card>
         <p className="text-sm">UID: {me.uid}</p>
         <p className="text-sm">couple: {me.coupleId ?? "未作成"}</p>
+        {me.persist?.kind ? (
+          <p className="mt-2 text-sm text-ink-soft">
+            persist {me.persist.kind}
+            {me.persist.detail ? ` — ${me.persist.detail}` : ""}
+          </p>
+        ) : null}
         <p className="mt-2 text-sm text-ink-soft">
           集合エリアを切り替えられます。発表会場そのものは未提供です。名古屋駅周辺のデモは残しています。
         </p>
