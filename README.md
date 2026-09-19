@@ -60,7 +60,8 @@ flowchart LR
   Orch --> Places
 ```
 
-- Web は入力と承認だけ。PENDING の run は worker が lease して実行する
+- Web は入力と承認。PENDING はローカルでは poller、Cloud Run では `POST /api/internal/jobs` が lease して実行する
+- 公開は Cloud Run に実行 SA を割り当てる（鍵ファイルなし）。手順は `docs/deploy.md`
 - 構造化抽出は mundane、最終行程・スキーマ失敗・大きな入力は hard
 - Named Router `orcarouter/futari-*` は `/v1/models` に無ければ使わない（名前は捏造しない）
 
@@ -94,6 +95,7 @@ flowchart LR
 | `ORCAROUTER_*` | 実推論。Named Router が無いときはカタログ ID |
 | `GOOGLE_MAPS_API_KEY` | Places New / Routes |
 | Firebase `NEXT_PUBLIC_*` | 匿名 Auth。LIVE の Admin は `gcloud auth application-default login`。GAC は不要 |
+| `WORKER_MODE` / `WORKER_INVOKE_URL` | ローカルは poller。Cloud Run は http。`docs/deploy.md` |
 | `ENABLE_DEMO_CONTROLS` | シナリオ注入。LIVE では `DEMO_ALLOWED_UIDS` に限定 |
 | `NOTIFY_ALLOWLIST` | AUTO_NOTIFY 送信先。既定 `in-app` |
 

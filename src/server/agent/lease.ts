@@ -4,7 +4,31 @@ import { realNowIso } from "@/lib/time";
 import { findRun, withStore, withStoreTx } from "@/server/repositories/store";
 import { newId } from "@/lib/ids";
 
-export const WORKER_ID = `worker_${process.pid}`;
+export function workerInstanceId(): string {
+  const rev = process.env.K_REVISION || process.env.HOSTNAME || "local";
+  return `worker_${rev}_${process.pid}`;
+}
+
+export const WORKER_ID = workerInstanceId();
+
+function takeLease(run: Run, now: number): boolean {
+  const attempts = (run.dispatchAttempts ?? 0) + 1;
+  run.dispatchAttempts = attempts;
+  if (attempts > WORKER.maxDispatchAttempts) {
+    run.status = "FAILED";
+    run.error = "dispatch attempts exceeded";
+    run.finishedAt = realNowIso();
+    run.leaseOwner = null;
+    return false;
+  }
+  run.status = "RUNNING";
+  run.startedAt = run.startedAt ?? realNowIso();
+  run.leaseOwner = WORKER_ID;
+  run.heartbeatAt = realNowIso();
+  run.leaseExpiresAt = new Date(now + WORKER.leaseMs).toISOString();
+  run.leaseFencingToken = (run.leaseFencingToken ?? 0) + 1;
+  return true;
+}
 
 export async function claimPendingRun(): Promise<string | null> {
   return withStoreTx((db) => {
@@ -57,14 +81,23 @@ export async function claimPendingRun(): Promise<string | null> {
     if (found.run.leaseOwner && found.run.leaseExpiresAt && new Date(found.run.leaseExpiresAt).getTime() > now) {
       return null;
     }
-    found.run.status = "RUNNING";
-    found.run.startedAt = found.run.startedAt ?? realNowIso();
-    found.run.leaseOwner = WORKER_ID;
-    found.run.heartbeatAt = realNowIso();
-    found.run.leaseExpiresAt = new Date(Date.now() + WORKER.leaseMs).toISOString();
-    found.run.leaseFencingToken = (found.run.leaseFencingToken ?? 0) + 1;
+    if (!takeLease(found.run, now)) return null;
     return found.run.id;
   }, { pendingRun: true });
+}
+
+export async function claimSpecificRun(runId: string): Promise<string | null> {
+  return withStoreTx((db) => {
+    const now = Date.now();
+    const found = findRun(db, runId);
+    if (!found) return null;
+    if (found.run.status !== "PENDING") return null;
+    if (found.run.leaseOwner && found.run.leaseExpiresAt && new Date(found.run.leaseExpiresAt).getTime() > now) {
+      return null;
+    }
+    if (!takeLease(found.run, now)) return null;
+    return found.run.id;
+  }, { runId });
 }
 
 export async function heartbeat(runId: string, fencingToken?: number): Promise<boolean> {

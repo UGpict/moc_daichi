@@ -38,6 +38,7 @@ export const WORKER = {
   pollMs: 400,
   leaseMs: 30_000,
   heartbeatMs: 5_000,
+  maxDispatchAttempts: 3,
 } as const;
 
 export const FX = {

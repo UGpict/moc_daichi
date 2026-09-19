@@ -6,6 +6,7 @@
 |---|---|---|
 | Firebase Auth | PASS（この環境） | ウェブ API キーで匿名 `signUp` + `accounts:lookup`。ADC 無し |
 | Firestore Admin（LIVE） | ローカルでユーザー ADC | `gcloud auth application-default login`。Cloud Agent では LIVE 5連をしない |
+| Cloud Run | 設定のみ | 実行 SA・Secret・IAM は `docs/deploy.md`。この VM からはデプロイしていない |
 | Firestore / Auth Emulator | Cloud Agent で使用 | `npm run persist:diagnose:emu` / `demo:emu:five`。未起動なら CONNECT で停止。本番へは繋がない |
 | OrcaRouter | PASS（この環境） | キーあり。Named Router `orcarouter/futari-*` は未作成のため `/v1/models` の `openai/gpt-4o-mini` / `openai/gpt-4o` |
 | Google Places / Routes | PASS（この環境） | Places New と Routes。過去の `departureTime` は送らない |

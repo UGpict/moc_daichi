@@ -106,6 +106,11 @@ export function getEnv() {
     demoLng: readNumber("DEMO_LNG", 136.881537),
     demoDate: read("DEMO_DATE") ?? "2026-09-19",
     workerConcurrency: Math.max(1, readNumber("WORKER_CONCURRENCY", 1)),
+    workerMode: (read("WORKER_MODE") ?? (read("K_SERVICE") ? "http" : "poller")).toLowerCase(),
+    workerInvokeUrl: read("WORKER_INVOKE_URL"),
+    workerSharedSecret: read("WORKER_SHARED_SECRET"),
+    cloudTasksQueue: read("CLOUD_TASKS_QUEUE"),
+    cloudRunService: read("K_SERVICE"),
     mockAuthSecret: read("MOCK_AUTH_SECRET") ?? (profile === "LIVE" ? null : "dev-only-change-me"),
     timeZone: TIME_ZONE,
   };

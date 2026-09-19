@@ -28,3 +28,7 @@
 | DEV | JSON | 部分成功（LIVE に数えない） |
 
 LLM / Places / Routes は `providers.llm` `providers.places` `providers.routes` が `LIVE` か `MOCK` かを別表示する。
+
+## 公開（Cloud Run）
+
+サービスに SA を割り当て、ADC で Firestore へ接続する。鍵は作らない。手順・IAM・Secret は `docs/deploy.md`。

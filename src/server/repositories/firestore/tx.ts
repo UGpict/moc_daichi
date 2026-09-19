@@ -65,16 +65,20 @@ export function applyProposalInTx(
   return { ok: true };
 }
 
-export function claimRunInTx(
-  db: FirestoreCollections,
+function takeLeaseInTx(
+  run: Run,
   input: { workerId: string; nowMs: number; leaseMs: number },
 ): { runId: string; fencingToken: number } | null {
-  const pending = Object.values(db.runs)
-    .filter((r) => r.status === "PENDING")
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const run = pending[0];
-  if (!run) return null;
   if (run.leaseOwner && run.leaseExpiresAt && new Date(run.leaseExpiresAt).getTime() > input.nowMs) {
+    return null;
+  }
+  const attempts = (run.dispatchAttempts ?? 0) + 1;
+  run.dispatchAttempts = attempts;
+  if (attempts > 3) {
+    run.status = "FAILED";
+    run.error = "dispatch attempts exceeded";
+    run.finishedAt = new Date(input.nowMs).toISOString();
+    run.leaseOwner = null;
     return null;
   }
   run.status = "RUNNING";
@@ -84,4 +88,25 @@ export function claimRunInTx(
   run.leaseExpiresAt = new Date(input.nowMs + input.leaseMs).toISOString();
   run.leaseFencingToken = (run.leaseFencingToken ?? 0) + 1;
   return { runId: run.id, fencingToken: run.leaseFencingToken };
+}
+
+export function claimRunInTx(
+  db: FirestoreCollections,
+  input: { workerId: string; nowMs: number; leaseMs: number },
+): { runId: string; fencingToken: number } | null {
+  const pending = Object.values(db.runs)
+    .filter((r) => r.status === "PENDING")
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const run = pending[0];
+  if (!run) return null;
+  return takeLeaseInTx(run, input);
+}
+
+export function claimSpecificRunInTx(
+  db: FirestoreCollections,
+  input: { runId: string; workerId: string; nowMs: number; leaseMs: number },
+): { runId: string; fencingToken: number } | null {
+  const run = db.runs[input.runId];
+  if (!run || run.status !== "PENDING") return null;
+  return takeLeaseInTx(run, input);
 }
