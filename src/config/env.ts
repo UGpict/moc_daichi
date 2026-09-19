@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TIME_ZONE } from "./settings";
+import { materializeAdcFromEnv } from "@/server/auth/adc";
 
 function loadDotEnv() {
   const g = globalThis as { __futariEnvLoaded?: boolean };
@@ -113,6 +114,7 @@ export function publicBlockers(): { code: string; item: string; status: "BLOCKED
   } else if (!env.firebaseConfigured && env.profile === "DEV") {
     items.push({ code: "FIREBASE", item: "Firebase 未設定。DEV は JSON ストアと開発用トークン", status: "BLOCKED" });
   }
+  for (const p of persistBlockers()) items.push({ code: p.code, item: p.item, status: "BLOCKED" });
   if ((env.requestedLive || env.profile === "LIVE") && !env.orcaConfigured) {
     items.push({ code: "ORCAROUTER", item: "LIVE 要求だが OrcaRouter API キー未設定。モック推論へは落とさない", status: "BLOCKED" });
   }
@@ -125,6 +127,45 @@ export function publicBlockers(): { code: string; item: string; status: "BLOCKED
     status: "BLOCKED",
   });
   return items;
+}
+
+export function persistBlockers(): { code: string; item: string; status: "BLOCKED"; kind?: string }[] {
+  const env = getEnv();
+  if (env.persistBackend === "json") return [];
+  if (env.firestoreEmulatorHost) return [];
+  materializeAdcFromEnv();
+  const path = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!path) {
+    return [
+      {
+        code: "FIRESTORE",
+        item: "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS が空（処理: read env）。LIVE は JSON へ落とさない",
+        status: "BLOCKED",
+        kind: "CREDENTIALS",
+      },
+    ];
+  }
+  if (path === "/path/to/service-account.json" || /\/path\/to\//.test(path)) {
+    return [
+      {
+        code: "FIRESTORE",
+        item: "CREDENTIALS: ADC パスがプレースホルダ /path/to/service-account.json（処理: open ADC file）。LIVE は JSON へ落とさない",
+        status: "BLOCKED",
+        kind: "CREDENTIALS",
+      },
+    ];
+  }
+  if (!existsSync(path)) {
+    return [
+      {
+        code: "FIRESTORE",
+        item: "CREDENTIALS: ADC ファイルが存在しない（処理: fs.existsSync）。LIVE は JSON へ落とさない",
+        status: "BLOCKED",
+        kind: "CREDENTIALS",
+      },
+    ];
+  }
+  return [];
 }
 
 export function assertLiveProvider(kind: "llm" | "places" | "routes"): void {

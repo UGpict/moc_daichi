@@ -1,4 +1,4 @@
-import { json, requireUid, idempotencyKey } from "@/server/api/http";
+import { json, persistHttp, requireUid, idempotencyKey } from "@/server/api/http";
 import { startRun } from "@/server/api/actions";
 import { sha256 } from "@/lib/ids";
 import type { RunKind } from "@/domain/schemas";
@@ -12,15 +12,19 @@ export async function POST(
   const { id } = await ctx.params;
   const body = (await request.json()) as { kind?: RunKind; trigger?: string; note?: string };
   const kind = body.kind ?? "INITIAL_PLAN";
-  const result = await startRun({
-    uid: auth.uid,
-    sessionId: id,
-    kind,
-    trigger: body.trigger ?? null,
-    idempotencyKey: idempotencyKey(request),
-    bodyHash: sha256(JSON.stringify({ kind, trigger: body.trigger ?? null, note: body.note ?? null })),
-    reflectionNote: body.note ?? null,
-  });
-  if (!result.ok) return json({ error: result.error }, result.status);
-  return json({ runId: result.runId }, 202);
+  try {
+    const result = await startRun({
+      uid: auth.uid,
+      sessionId: id,
+      kind,
+      trigger: body.trigger ?? null,
+      idempotencyKey: idempotencyKey(request),
+      bodyHash: sha256(JSON.stringify({ kind, trigger: body.trigger ?? null, note: body.note ?? null })),
+      reflectionNote: body.note ?? null,
+    });
+    if (!result.ok) return json({ error: result.error }, result.status);
+    return json({ runId: result.runId }, 202);
+  } catch (error) {
+    return persistHttp(error) ?? Promise.reject(error);
+  }
 }

@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync, unlinkSync, openSync, closeSync } from "node:fs";
 import { dirname, join } from "node:path";
+import type { StoreScope } from "./storeScope";
 import type {
   Approval,
   AppEvent,
@@ -59,7 +60,7 @@ export type Db = {
 const STORE_PATH = join(process.cwd(), ".data", "store.json");
 const LOCK_PATH = join(process.cwd(), ".data", "store.lock");
 
-function emptyDb(): Db {
+export function emptyDb(): Db {
   return { couples: {}, idempotency: {}, tokens: {}, digests: {}, drafts: {} };
 }
 
@@ -116,7 +117,7 @@ function writeDb(db: Db) {
   renameSync(tmp, STORE_PATH);
 }
 
-export async function withStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+async function jsonWithStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
   const fd = await acquireLock();
   try {
     const db = readDb();
@@ -128,7 +129,7 @@ export async function withStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
   }
 }
 
-export async function readStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+async function jsonReadStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
   const fd = await acquireLock();
   try {
     return await fn(readDb());
@@ -136,6 +137,44 @@ export async function readStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
     releaseLock(fd);
   }
 }
+
+export async function withStore<T>(fn: (db: Db) => T | Promise<T>, scope: StoreScope = {}): Promise<T> {
+  const { getEnv } = await import("@/config/env");
+  const env = getEnv();
+  if (env.persistBackend === "json") return jsonWithStore(fn);
+  const { firestoreWithStore } = await import("./firestore/repo");
+  return firestoreWithStore(fn, scope);
+}
+
+export async function readStore<T>(fn: (db: Db) => T | Promise<T>, scope: StoreScope = {}): Promise<T> {
+  const { getEnv } = await import("@/config/env");
+  const env = getEnv();
+  if (env.persistBackend === "json") return jsonReadStore(fn);
+  const { firestoreReadStore } = await import("./firestore/repo");
+  return firestoreReadStore(fn, scope);
+}
+
+export async function withStoreTx<T>(fn: (db: Db) => T | Promise<T>, scope: StoreScope): Promise<T> {
+  const { getEnv } = await import("@/config/env");
+  const env = getEnv();
+  if (env.persistBackend === "json") return jsonWithStore(fn);
+  const { firestoreWithTx } = await import("./firestore/repo");
+  return firestoreWithTx(fn, scope);
+}
+
+export function withRun<T>(runId: string, fn: (db: Db) => T | Promise<T>): Promise<T> {
+  return withStore(fn, { runId });
+}
+
+export function withSession<T>(sessionId: string, fn: (db: Db) => T | Promise<T>): Promise<T> {
+  return withStore(fn, { sessionId });
+}
+
+export function withCouple<T>(coupleId: string, fn: (db: Db) => T | Promise<T>): Promise<T> {
+  return withStore(fn, { coupleId });
+}
+
+export type { StoreScope } from "./storeScope";
 
 export function findSession(
   db: Db,

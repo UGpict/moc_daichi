@@ -1,0 +1,76 @@
+{
+  "at": "2026-09-19T22:38:49.851Z",
+  "sync": {
+    "backend": "firestore",
+    "kind": "CREDENTIALS",
+    "detail": "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。",
+    "operation": "open GOOGLE_APPLICATION_CREDENTIALS",
+    "errorName": "Error",
+    "errorCode": "ENOENT",
+    "errorMessage": "ENOENT: placeholder path, no such file",
+    "currentWriteTarget": "none",
+    "leftoverStoreJson": {
+      "exists": true,
+      "bytes": 4599436
+    },
+    "implemented": {
+      "jsonStore": true,
+      "firestoreRepo": true,
+      "switchByPersistBackend": true,
+      "scopedWrites": true,
+      "approvalTransaction": true
+    },
+    "adc": {
+      "envSet": true,
+      "fileExists": false,
+      "pathIsPlaceholder": true,
+      "basename": "service-account.json",
+      "parentDirExists": false,
+      "materializeSource": "placeholder",
+      "materialized": false
+    },
+    "projectIdSet": true,
+    "emulator": false
+  },
+  "probe": {
+    "backend": "firestore",
+    "kind": "CREDENTIALS",
+    "detail": "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。",
+    "operation": "open GOOGLE_APPLICATION_CREDENTIALS",
+    "errorName": "Error",
+    "errorCode": "ENOENT",
+    "errorMessage": "ENOENT: placeholder path, no such file",
+    "currentWriteTarget": "none",
+    "leftoverStoreJson": {
+      "exists": true,
+      "bytes": 4599436
+    },
+    "implemented": {
+      "jsonStore": true,
+      "firestoreRepo": true,
+      "switchByPersistBackend": true,
+      "scopedWrites": true,
+      "approvalTransaction": true
+    },
+    "adc": {
+      "envSet": true,
+      "fileExists": false,
+      "pathIsPlaceholder": true,
+      "basename": "service-account.json",
+      "parentDirExists": false,
+      "materializeSource": "placeholder",
+      "materialized": false
+    },
+    "projectIdSet": true,
+    "emulator": false
+  },
+  "readWrite": {
+    "attempted": false,
+    "kind": "CREDENTIALS",
+    "wrote": false,
+    "readBack": false,
+    "deleted": false,
+    "operation": "open GOOGLE_APPLICATION_CREDENTIALS",
+    "detail": "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
+  }
+}

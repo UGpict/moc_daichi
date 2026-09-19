@@ -35,7 +35,7 @@ export async function createDraft(uid: string, areaId: string, spots: SelectedSp
     db.drafts ??= {};
     draft.id = Object.values(db.drafts).find((d) => d.ownerUid === uid && d.status === "OPEN")?.id ?? draft.id;
     db.drafts[draft.id] = { ...draft, selectedSpots: spots, status: "OPEN", consumedAt: null };
-  });
+  }, { draftsForOwner: true, ownerUid: uid });
   return draft;
 }
 
@@ -47,14 +47,14 @@ export async function clearDraft(uid: string, draftId?: string | null): Promise<
       if (draftId && d.id !== draftId) continue;
       if (d.status === "OPEN") d.status = "CLEARED";
     }
-  });
+  }, { draftsForOwner: true, ownerUid: uid, draftId: draftId ?? undefined });
 }
 
 export async function getOpenDraft(uid: string): Promise<SelectionDraft | null> {
   return withStore((db) => {
     db.drafts ??= {};
     return Object.values(db.drafts).find((d) => d.ownerUid === uid && d.status === "OPEN") ?? null;
-  });
+  }, { draftsForOwner: true, ownerUid: uid });
 }
 
 export async function consumeDraft(uid: string, draftId: string | null | undefined): Promise<void> {
@@ -64,5 +64,5 @@ export async function consumeDraft(uid: string, draftId: string | null | undefin
     if (!d || d.ownerUid !== uid) return;
     d.status = "CONSUMED";
     d.consumedAt = realNowIso();
-  });
+  }, { draftId, ownerUid: uid });
 }

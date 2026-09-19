@@ -1,13 +1,13 @@
 import { LIMITS, WORKER } from "@/config/settings";
 import type { AppEvent, Run } from "@/domain/schemas";
 import { realNowIso } from "@/lib/time";
-import { findRun, withStore } from "@/server/repositories/store";
+import { findRun, withStore, withStoreTx } from "@/server/repositories/store";
 import { newId } from "@/lib/ids";
 
 export const WORKER_ID = `worker_${process.pid}`;
 
 export async function claimPendingRun(): Promise<string | null> {
-  return withStore((db) => {
+  return withStoreTx((db) => {
     const now = Date.now();
     for (const couple of Object.values(db.couples)) {
       for (const bundle of Object.values(couple.sessions)) {
@@ -64,7 +64,7 @@ export async function claimPendingRun(): Promise<string | null> {
     found.run.leaseExpiresAt = new Date(Date.now() + WORKER.leaseMs).toISOString();
     found.run.leaseFencingToken = (found.run.leaseFencingToken ?? 0) + 1;
     return found.run.id;
-  });
+  }, { pendingRun: true });
 }
 
 export async function heartbeat(runId: string, fencingToken?: number): Promise<boolean> {
@@ -76,7 +76,7 @@ export async function heartbeat(runId: string, fencingToken?: number): Promise<b
     found.run.heartbeatAt = realNowIso();
     found.run.leaseExpiresAt = new Date(Date.now() + WORKER.leaseMs).toISOString();
     return true;
-  });
+  }, { runId });
 }
 
 void LIMITS;
