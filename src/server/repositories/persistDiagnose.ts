@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import { getEnv } from "@/config/env";
+import { lastAdcMaterialize, materializeAdcFromEnv } from "@/server/auth/adc";
 import { lastFirebaseAdminInitError } from "@/server/auth/firebase";
 import {
   PersistBlockedError,
@@ -23,6 +24,8 @@ export type PersistDiagnosis = {
     jsonStore: true;
     firestoreRepo: true;
     switchByPersistBackend: true;
+    scopedWrites: true;
+    approvalTransaction: true;
   };
   adc: {
     envSet: boolean;
@@ -30,6 +33,8 @@ export type PersistDiagnosis = {
     pathIsPlaceholder: boolean;
     basename: string | null;
     parentDirExists: boolean;
+    materializeSource: string | null;
+    materialized: boolean;
   };
   projectIdSet: boolean;
   emulator: boolean;
@@ -72,16 +77,29 @@ function fail(
     errorMessage: error?.message ? redactPersistText(error.message) : null,
     currentWriteTarget: env.persistBackend === "json" ? "json:.data/store.json" : "none",
     leftoverStoreJson: leftoverStore(),
-    implemented: { jsonStore: true, firestoreRepo: true, switchByPersistBackend: true },
-    adc: {
-      envSet: Boolean(path),
-      fileExists: Boolean(path && existsSync(path)),
-      pathIsPlaceholder: Boolean(path && isPlaceholderPath(path)),
-      basename: path ? basename(path) : null,
-      parentDirExists: Boolean(path && existsSync(dirname(path))),
+    implemented: {
+      jsonStore: true,
+      firestoreRepo: true,
+      switchByPersistBackend: true,
+      scopedWrites: true,
+      approvalTransaction: true,
     },
+    adc: adcInfo(path),
     projectIdSet: Boolean(env.firebaseProjectId),
     emulator: Boolean(env.firestoreEmulatorHost),
+  };
+}
+
+function adcInfo(path: string | null): PersistDiagnosis["adc"] {
+  const materialized = lastAdcMaterialize();
+  return {
+    envSet: Boolean(path),
+    fileExists: Boolean(path && existsSync(path)),
+    pathIsPlaceholder: Boolean(path && isPlaceholderPath(path)),
+    basename: path ? basename(path) : null,
+    parentDirExists: Boolean(path && existsSync(dirname(path))),
+    materializeSource: materialized?.source ?? null,
+    materialized: Boolean(materialized?.ok),
   };
 }
 
@@ -98,20 +116,20 @@ function ok(detail: string, write: PersistDiagnosis["currentWriteTarget"]): Pers
     errorMessage: null,
     currentWriteTarget: write,
     leftoverStoreJson: leftoverStore(),
-    implemented: { jsonStore: true, firestoreRepo: true, switchByPersistBackend: true },
-    adc: {
-      envSet: Boolean(path),
-      fileExists: Boolean(path && existsSync(path)),
-      pathIsPlaceholder: Boolean(path && isPlaceholderPath(path)),
-      basename: path ? basename(path) : null,
-      parentDirExists: Boolean(path && existsSync(dirname(path))),
+    implemented: {
+      jsonStore: true,
+      firestoreRepo: true,
+      switchByPersistBackend: true,
+      scopedWrites: true,
+      approvalTransaction: true,
     },
+    adc: adcInfo(path),
     projectIdSet: Boolean(env.firebaseProjectId),
     emulator: Boolean(env.firestoreEmulatorHost),
   };
 }
 
-/** ファイルと環境だけ。Firestore RPC は打たない。 */
+/** ファイルと環境だけ。Firestore RPC は打たない。秘密本文は読んでも返さない。 */
 export function diagnosePersistSync(): PersistDiagnosis {
   const env = getEnv();
   if (env.persistBackend === "json") {
@@ -120,6 +138,7 @@ export function diagnosePersistSync(): PersistDiagnosis {
   if (env.firestoreEmulatorHost) {
     return ok("FIRESTORE_EMULATOR_HOST あり。実 ADC は不要", "firestore:collections");
   }
+  materializeAdcFromEnv();
   const path = adcPath();
   if (!path) {
     return fail("CREDENTIALS", "read process.env.GOOGLE_APPLICATION_CREDENTIALS", "環境変数 GOOGLE_APPLICATION_CREDENTIALS が空。認証情報の取得失敗。");

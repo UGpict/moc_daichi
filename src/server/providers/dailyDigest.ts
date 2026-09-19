@@ -23,7 +23,7 @@ function ctx(): ProviderCtx {
 export async function readTodayDigest(): Promise<DailyDigest | null> {
   const env = getEnv();
   const id = digestId(env.demoAreaId, env.demoLat, env.demoLng, 2500, tokyoToday());
-  return withStore((db) => db.digests?.[id] ?? null);
+  return withStore((db) => db.digests?.[id] ?? null, { digestId: id });
 }
 
 export async function maybeRefreshDailyDigest(): Promise<void> {
@@ -55,7 +55,7 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
       providerVersion: PROVIDER_VERSION,
     };
     return true;
-  });
+  }, { digestId: id });
   if (!start) return;
 
   const area = { lat: env.demoLat, lng: env.demoLng, name: env.demoAreaName };
@@ -145,7 +145,7 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
       radiusMeters: 2500,
       providerVersion: PROVIDER_VERSION,
     };
-  });
+  }, { digestId: id });
 }
 
 export function digestKey(areaId: string, lat: number, lng: number, radius: number, date: string) {

@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync, unlinkSync, openSync, closeSync } from "node:fs";
 import { dirname, join } from "node:path";
+import type { StoreScope } from "./storeScope";
 import type {
   Approval,
   AppEvent,
@@ -137,21 +138,43 @@ async function jsonReadStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
   }
 }
 
-export async function withStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+export async function withStore<T>(fn: (db: Db) => T | Promise<T>, scope: StoreScope = {}): Promise<T> {
   const { getEnv } = await import("@/config/env");
   const env = getEnv();
   if (env.persistBackend === "json") return jsonWithStore(fn);
   const { firestoreWithStore } = await import("./firestore/repo");
-  return firestoreWithStore(fn);
+  return firestoreWithStore(fn, scope);
 }
 
-export async function readStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+export async function readStore<T>(fn: (db: Db) => T | Promise<T>, scope: StoreScope = {}): Promise<T> {
   const { getEnv } = await import("@/config/env");
   const env = getEnv();
   if (env.persistBackend === "json") return jsonReadStore(fn);
   const { firestoreReadStore } = await import("./firestore/repo");
-  return firestoreReadStore(fn);
+  return firestoreReadStore(fn, scope);
 }
+
+export async function withStoreTx<T>(fn: (db: Db) => T | Promise<T>, scope: StoreScope): Promise<T> {
+  const { getEnv } = await import("@/config/env");
+  const env = getEnv();
+  if (env.persistBackend === "json") return jsonWithStore(fn);
+  const { firestoreWithTx } = await import("./firestore/repo");
+  return firestoreWithTx(fn, scope);
+}
+
+export function withRun<T>(runId: string, fn: (db: Db) => T | Promise<T>): Promise<T> {
+  return withStore(fn, { runId });
+}
+
+export function withSession<T>(sessionId: string, fn: (db: Db) => T | Promise<T>): Promise<T> {
+  return withStore(fn, { sessionId });
+}
+
+export function withCouple<T>(coupleId: string, fn: (db: Db) => T | Promise<T>): Promise<T> {
+  return withStore(fn, { coupleId });
+}
+
+export type { StoreScope } from "./storeScope";
 
 export function findSession(
   db: Db,

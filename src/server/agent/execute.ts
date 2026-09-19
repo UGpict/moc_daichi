@@ -4,14 +4,14 @@ import type { AppEvent, Run } from "@/domain/schemas";
 import { runPlanningOrchestrator } from "./orchestrator";
 import { runReflection } from "./reflection";
 import { realNowIso } from "@/lib/time";
-import { findRun, withStore } from "@/server/repositories/store";
+import { findRun, readStore, withRun } from "@/server/repositories/store";
 import { canWriteRun } from "@/server/approvals/service";
 import { WORKER_ID } from "./lease";
 import { maskSecrets } from "@/server/security/logMask";
 
 export async function executeRun(runId: string): Promise<void> {
   const env = getEnv();
-  const loaded = await withStore((db) => findRun(db, runId));
+  const loaded = await readStore((db) => findRun(db, runId), { runId });
   if (!loaded) return;
   if (
     loaded.run.leaseOwner &&
@@ -36,7 +36,7 @@ export async function executeRun(runId: string): Promise<void> {
   } catch (error) {
     const message = maskSecrets(error instanceof Error ? error.message : "unknown error");
     try {
-      await withStore((db) => {
+      await withRun(runId, (db) => {
         const found = findRun(db, runId);
         if (!found) return;
         found.run.status = controller.signal.aborted ? "PARTIAL" : "FAILED";

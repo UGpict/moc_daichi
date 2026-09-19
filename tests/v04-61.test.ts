@@ -75,7 +75,17 @@ describe("reflection split (no auto convert)", () => {
     assert.ok(mock.hypotheses.length);
     assert.ok(!mock.memoryCandidates.some((c) => c.careTarget === "STANDING"));
     assert.ok(!mock.memoryCandidates.some((c) => c.sourceType === "HYPOTHESIS"));
-    assert.ok(mock.memoryCandidates.some((c) => c.type === "PREFERENCE"));
+    assert.ok(!mock.memoryCandidates.some((c) => c.type === "PREFERENCE"));
+    assert.ok(!mock.memoryCandidates.some((c) => /カフェが好評/.test(c.content)));
+  });
+
+  it("does not invent a cafe preference from the word カフェ alone", () => {
+    const mock = mockFromNote("カフェに行った");
+    assert.ok(!mock.memoryCandidates.some((c) => c.type === "PREFERENCE"));
+    assert.ok(!mock.observations.some((o) => /好評/.test(o)));
+    const normalized = normalizeReflectionLlm({ observations: ["カフェに行った"], memoryCandidates: [] }, "カフェに行った");
+    assert.ok(!normalized.memoryCandidates.some((c) => c.type === "PREFERENCE"));
+    assert.ok(!normalized.memoryCandidates.some((c) => /カフェが好評/.test(c.content)));
   });
 
   it("does not rewrite HYPOTHESIS to OBSERVATION", () => {

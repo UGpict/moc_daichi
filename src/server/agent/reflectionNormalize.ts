@@ -61,31 +61,13 @@ export function interpretConfirmation(answer: string): {
   return { saveCausal: true, careTarget: null, careDirection: null, content: trimmed };
 }
 
-function cafeObserved(note: string): boolean {
-  return /カフェ|甘い|ケーキ|スイーツ/.test(note);
-}
-
-/** 原文だけから観察・仮説を分ける。疲→STANDING はしない。 */
+/** 原文だけから観察・仮説を分ける。疲→STANDING もカフェ単語→好評も補完しない。 */
 export function mockFromNote(masked: string): NormalizedReflection {
   const observations: string[] = [];
   const hypotheses: string[] = [];
   const uncertainties: string[] = [];
   const memoryCandidates: NormalizedReflection["memoryCandidates"] = [];
 
-  if (cafeObserved(masked)) {
-    observations.push("カフェや甘いものが好評だったという記述がある");
-    memoryCandidates.push({
-      subject: "PARTNER",
-      type: "PREFERENCE",
-      content: "カフェが好評だった",
-      sourceType: "OBSERVATION",
-      evidenceQuote: masked.slice(0, 80),
-      strength: "SOFT",
-      scope: "NEXT_DATE",
-      careTarget: "SWEETS",
-      careDirection: "PREFER",
-    });
-  }
   if (noteMentionsFatigue(masked)) {
     observations.push("疲労への言及がある");
   }
@@ -169,10 +151,6 @@ export function normalizeReflectionLlm(
 
   if (causeUnknown(note) && !hypotheses.some((h) => /原因|立|歩/.test(h))) {
     hypotheses.push("疲労の原因は未確認");
-  }
-  if (cafeObserved(note) && !kept.some((c) => c.type === "PREFERENCE")) {
-    const fallback = mockFromNote(note);
-    kept.push(...fallback.memoryCandidates.filter((c) => c.type === "PREFERENCE"));
   }
 
   const clarification = causeUnknown(note)

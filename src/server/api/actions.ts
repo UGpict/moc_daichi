@@ -22,7 +22,9 @@ import {
   findMemory,
   findRun,
   findSession,
+  readStore,
   withStore,
+  withStoreTx,
   type CoupleBundle,
   type SessionBundle,
 } from "@/server/repositories/store";
@@ -75,7 +77,7 @@ export async function createCouple(uid: string, isDemo: boolean) {
       sessions: {},
       replays: {},
     };
-  });
+  }, { coupleId: id });
   return { id };
 }
 
@@ -140,7 +142,7 @@ export async function createSession(uid: string, coupleId: string, raw: unknown)
       }
     }
     return { ok: true as const, id, input };
-  });
+  }, { coupleId });
   if (created.ok) await consumeDraft(uid, input.draftId);
   return created;
 }
@@ -275,20 +277,20 @@ export async function startRun(input: {
       };
     }
     return { ok: true as const, duplicated: false, runId: id };
-  });
+  }, { sessionId: input.sessionId, idempotencyKey: input.idempotencyKey ?? undefined });
 }
 
 export async function getSessionSnapshot(uid: string, sessionId: string) {
-  return withStore((db) => {
+  return readStore((db) => {
     const found = findSession(db, sessionId);
     if (!found) return { ok: false as const, status: 404, error: "not found" };
     if (found.couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
     return { ok: true as const, data: snapshotOf(found.couple, found.bundle) };
-  });
+  }, { sessionId });
 }
 
 export async function getRunView(uid: string, runId: string) {
-  return withStore((db) => {
+  return readStore((db) => {
     const found = findRun(db, runId);
     if (!found) return { ok: false as const, status: 404, error: "not found" };
     if (found.couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
@@ -296,7 +298,7 @@ export async function getRunView(uid: string, runId: string) {
       .filter((e) => e.runId === runId)
       .sort((a, b) => a.seq - b.seq);
     return { ok: true as const, run: found.run, events };
-  });
+  }, { runId });
 }
 
 export async function answerQuestion(uid: string, runId: string, questionId: string, answer: string) {
@@ -330,11 +332,11 @@ export async function answerQuestion(uid: string, runId: string, questionId: str
     found.run.finishedAt = realNowIso();
     found.run.waitingQuestion = null;
     return { ok: true as const };
-  });
+  }, { runId });
 }
 
 export async function decideApproval(uid: string, approvalId: string, decision: "APPROVE" | "REJECT") {
-  return withStore((db) => {
+  return withStoreTx((db) => {
     const found = findApproval(db, approvalId);
     if (!found) return { ok: false as const, status: 404, error: "not found" };
     if (found.couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
@@ -403,7 +405,7 @@ export async function decideApproval(uid: string, approvalId: string, decision: 
       return { ok: true as const, approval };
     }
     return { ok: false as const, status: 400, error: "kind" };
-  });
+  }, { approvalId });
 }
 
 export async function updateProgress(
@@ -433,7 +435,7 @@ export async function updateProgress(
       if (item) item.progress = body.progress;
     }
     return { ok: true as const, session: found.bundle.session };
-  });
+  }, { sessionId });
 }
 
 export async function injectScenario(
@@ -477,7 +479,7 @@ export async function injectScenario(
       found.bundle.session.scheduleNow = String(body.overlay.now ?? realNowIso());
     }
     return { ok: true as const, scenarioId: id };
-  });
+  }, { sessionId });
 }
 
 export async function reviseMemory(uid: string, memoryId: string, content: string) {
@@ -527,7 +529,7 @@ export async function reviseMemory(uid: string, memoryId: string, content: strin
       presentedHash: candidateContentHash(found.couple.memoryCandidates[cid]!),
     };
     return { ok: true as const, candidateId: cid, approvalId };
-  });
+  }, { memoryId });
 }
 
 export async function deactivateMemory(uid: string, memoryId: string) {
@@ -537,7 +539,7 @@ export async function deactivateMemory(uid: string, memoryId: string) {
     if (found.couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
     found.memory.active = false;
     return { ok: true as const };
-  });
+  }, { memoryId });
 }
 
 export async function messageDraft(uid: string, sessionId: string) {
@@ -562,7 +564,7 @@ export async function messageDraft(uid: string, sessionId: string) {
     };
     const draft = draftShareMessage(dto);
     return { ok: true as const, dto, ...draft };
-  });
+  }, { sessionId });
 }
 
 export async function exportReplay(uid: string, runId: string) {
@@ -607,7 +609,7 @@ export async function exportReplay(uid: string, runId: string) {
       notes: "デモ入力のみを検査して保存。実ユーザーのPRIVATE原文は含まない。再生時に外部APIも新規課金もしない",
     };
     return { ok: true as const, replayId: id };
-  });
+  }, { runId });
 }
 
 export async function demoReset(uid: string, keepReplays = true) {
@@ -627,11 +629,11 @@ export async function demoReset(uid: string, keepReplays = true) {
       };
     }
     return { ok: true as const };
-  });
+  }, { demoReset: true, ownerUid: uid });
 }
 
 export async function listMemory(uid: string, coupleId: string) {
-  return withStore((db) => {
+  return readStore((db) => {
     const couple = db.couples[coupleId];
     if (!couple) return { ok: false as const, status: 404, error: "not found" };
     if (couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
@@ -640,7 +642,7 @@ export async function listMemory(uid: string, coupleId: string) {
       memories: Object.values(couple.memories),
       candidates: Object.values(couple.memoryCandidates),
     };
-  });
+  }, { coupleId });
 }
 
 export async function listSessions(uid: string, coupleId: string) {
@@ -667,14 +669,14 @@ export async function listSessions(uid: string, coupleId: string) {
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return { ok: true as const, sessions };
-  });
+  }, { coupleId });
 }
 
 export async function ownerCoupleId(uid: string): Promise<string | null> {
-  return withStore((db) => {
+  return readStore((db) => {
     const hit = Object.values(db.couples).find((c) => c.couple.ownerUid === uid);
     return hit?.couple.id ?? null;
-  });
+  }, { ownerUid: uid });
 }
 
 export { sha256, tokyoDateTime };

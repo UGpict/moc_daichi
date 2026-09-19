@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TIME_ZONE } from "./settings";
+import { materializeAdcFromEnv } from "@/server/auth/adc";
 
 function loadDotEnv() {
   const g = globalThis as { __futariEnvLoaded?: boolean };
@@ -132,6 +133,7 @@ export function persistBlockers(): { code: string; item: string; status: "BLOCKE
   const env = getEnv();
   if (env.persistBackend === "json") return [];
   if (env.firestoreEmulatorHost) return [];
+  materializeAdcFromEnv();
   const path = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (!path) {
     return [

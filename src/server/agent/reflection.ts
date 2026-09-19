@@ -8,7 +8,7 @@ import { detectInjection } from "@/server/security/injection";
 import { reflectionLlmSchema, reflectionStrictSchema, repairHintFor } from "@/server/llm/taskSchemas";
 import { maskPii } from "@/server/privacy/mask";
 import { candidateContentHash, validateMemoryCandidate } from "@/domain/memory/validateMemoryCandidate";
-import { findRun, withStore, type CoupleBundle, type SessionBundle } from "@/server/repositories/store";
+import { findRun, readStore, withRun, type CoupleBundle, type SessionBundle } from "@/server/repositories/store";
 import {
   interpretConfirmation,
   mockFromNote,
@@ -17,7 +17,7 @@ import {
 } from "./reflectionNormalize";
 
 async function appendEvent(runId: string, type: EventType, summary: string, extra: Partial<AppEvent> = {}) {
-  await withStore((db) => {
+  await withRun(runId, (db) => {
     const found = findRun(db, runId);
     if (!found) return;
     const seq = Object.keys(found.bundle.events).length;
@@ -112,11 +112,11 @@ function enqueueMemoryApprovals(
 
 export async function runReflection(runId: string, signal: AbortSignal): Promise<void> {
   const env = getEnv();
-  const loaded = await withStore((db) => findRun(db, runId));
+  const loaded = await readStore((db) => findRun(db, runId), { runId });
   if (!loaded) return;
 
   if (loaded.run.waitingQuestion) {
-    await withStore((db) => {
+    await withRun(runId, (db) => {
       const found = findRun(db, runId);
       if (!found) return;
       found.run.status = "SUCCEEDED";
@@ -182,7 +182,7 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         : { error: attempt.error },
     });
   }
-  await withStore((db) => {
+  await withRun(runId, (db) => {
     const found = findRun(db, runId);
     if (!found) return;
     found.run.cost.mundaneCalls += 1;
@@ -209,7 +209,7 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
   );
   const reflectionId = reflection?.id ?? newId("ref");
   let storedCandidates: MemoryCandidate[] = [];
-  await withStore((db) => {
+  await withRun(runId, (db) => {
     const found = findRun(db, runId);
     if (!found) return;
     if (!found.couple.reflections[reflectionId]) {
@@ -248,7 +248,7 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
       prompt: data.clarification.prompt,
       options: data.clarification.options,
     };
-    await withStore((db) => {
+    await withRun(runId, (db) => {
       const found = findRun(db, runId);
       if (!found) return;
       found.run.status = "WAITING_INPUT";
@@ -261,7 +261,7 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
     return;
   }
 
-  await withStore((db) => {
+  await withRun(runId, (db) => {
     const found = findRun(db, runId);
     if (!found) return;
     enqueueMemoryApprovals(found, runId, storedCandidates);
@@ -323,7 +323,7 @@ export async function applyReflectionAnswer(args: {
   questionId: string;
   answer: string;
 }): Promise<void> {
-  await withStore((db) => {
+  await withRun(args.runId, (db) => {
     const found = findRun(db, args.runId);
     if (!found) return;
     const masked = maskPii(args.answer);

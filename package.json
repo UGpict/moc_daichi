@@ -8,7 +8,7 @@
     "dev:worker": "tsx src/worker/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
-    "test": "tsx --test tests/plan.test.ts tests/privacy.test.ts tests/security.test.ts tests/preference-cards.test.ts tests/digest.test.ts tests/v07.test.ts tests/approvals.test.ts tests/v08.test.ts tests/v04-61.test.ts tests/persist.test.ts",
+    "test": "tsx --test tests/plan.test.ts tests/privacy.test.ts tests/security.test.ts tests/preference-cards.test.ts tests/digest.test.ts tests/v07.test.ts tests/approvals.test.ts tests/v08.test.ts tests/v04-61.test.ts tests/persist.test.ts tests/firestore-scope.test.ts",
     "build": "next build",
     "start": "tsx scripts/start.ts",
     "doctor": "tsx scripts/doctor.ts",

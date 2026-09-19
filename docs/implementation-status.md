@@ -16,7 +16,10 @@
 - `demo:five` は v0.4 §6.1。雨の承認待ち・確認質問なし・記憶影響なしは完全成功にしない。FAILED / BLOCKED / 部分成功と各条件判定を `docs/reports/criteria-61.json` に保存
 - 振り返りは観察 / 仮説 / 確認済みを分離。HYPOTHESIS→OBSERVATION 変換と疲→STANDING 補完はしない。原因不明なら1問確認し、承認済みだけ次回に使う
 - 上限付きツール選択ループが検証結果を次判断へ渡す。決定的な検証・適用ゲートはそのまま
-- LIVE/EMULATOR の永続化は Admin Firestore。認証情報不足と未実装を区別。JSON へ黙って落とさない
+- LIVE/EMULATOR の永続化は Admin Firestore。対象ドキュメント単位の読みと差分書き。全件 get / 全件書き戻しはしない
+- 承認（PLAN_APPLY / MEMORY_*）と行程適用は Firestore `runTransaction`。JSON へ黙って落とさない
+- 「カフェ」単語だけの好評記憶補完はしない
+- Cloud Agent への ADC は Runtime Secret `FIREBASE_SERVICE_ACCOUNT_JSON`（手順は `docs/adc-cloud-agent.md`）。本文はログに出さない
 
 ## 検証済み
 

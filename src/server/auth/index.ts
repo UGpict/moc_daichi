@@ -63,7 +63,7 @@ export async function issueAnonymous(): Promise<{ uid: string; token: string }> 
   const token = signToken(uid);
   await withStore((db) => {
     db.tokens[token] = { uid, createdAt: realNowIso() };
-  });
+  }, { token });
   return { uid, token };
 }
 

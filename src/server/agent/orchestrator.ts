@@ -13,7 +13,7 @@ import { validatePlan } from "@/domain/plan/validatePlan";
 import { getCatalogSpot } from "@/server/providers/catalog";
 import { readTodayDigest } from "@/server/providers/dailyDigest";
 import { ensureSpotFacts } from "@/server/providers/ensureSpotFacts";
-import { findRun, withStore } from "@/server/repositories/store";
+import { findRun, readStore, withRun, withStoreTx } from "@/server/repositories/store";
 import { canWriteRun } from "@/server/approvals/service";
 import { buildPlan } from "./buildPlan";
 import { heartbeat, WORKER_ID } from "./lease";
@@ -30,7 +30,7 @@ async function appendEvent(
   summary: string,
   extra: Partial<AppEvent> = {},
 ) {
-  await withStore((db) => {
+  await withRun(runId, (db) => {
     const found = findRun(db, runId);
     if (!found) return;
     if (
@@ -66,7 +66,7 @@ async function appendEvent(
 }
 
 async function patchRun(runId: string, patch: Partial<Run>) {
-  await withStore((db) => {
+  await withRun(runId, (db) => {
     const found = findRun(db, runId);
     if (!found) return;
     if (found.run.leaseOwner && found.run.leaseOwner !== WORKER_ID) return;
@@ -248,7 +248,7 @@ function defaultToolCalls(
 
 export async function runPlanningOrchestrator(runId: string, signal: AbortSignal): Promise<void> {
   const env = getEnv();
-  const loaded = await withStore((db) => findRun(db, runId));
+  const loaded = await readStore((db) => findRun(db, runId), { runId });
   if (!loaded) return;
   const { run, bundle, couple } = loaded;
   const session = bundle.session;
@@ -486,7 +486,7 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
         },
       });
       if (llm.coerced) await appendEvent(runId, "LLM_COERCED", "寛容パースを最終手段として使用");
-      await withStore((db) => {
+      await withRun(runId, (db) => {
         const found = findRun(db, runId);
         if (!found) return;
         found.run.cost.mundaneCalls += llm.pool === "mundane" ? 1 : 0;
@@ -797,7 +797,7 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
     return;
   }
 
-  await withStore((db) => {
+  await withRun(runId, (db) => {
     const found = findRun(db, runId);
     if (!found) return;
     found.run.displayRuntime = env.profile === "LIVE" ? "LIVE" : env.profile === "EMULATOR" ? "EMULATOR" : "DEV";
@@ -841,14 +841,14 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
     });
     if (auto.apply) {
       const notifyTo = resolveNotifyTarget("in-app");
-      await withStore((db) => {
+      await withStoreTx((db) => {
         const found = findRun(db, runId);
         if (!found) return;
         found.bundle.session.currentPlanVersion = built.plan.version;
         found.run.status = "SUCCEEDED";
         found.run.finishedAt = realNowIso();
         found.run.leaseOwner = null;
-      });
+      }, { runId });
       await appendEvent(runId, "PLAN_AUTO_APPLIED", `AUTO_NOTIFY: ${d.summary}`, {
         payload: { diff: d, reasons: auto.reasons, notifyTo },
       });
@@ -856,7 +856,7 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
       return;
     }
     const approvalId = newId("appr");
-    await withStore((db) => {
+    await withRun(runId, (db) => {
       const found = findRun(db, runId);
       if (!found) return;
       found.couple.approvals[approvalId] = {
@@ -891,14 +891,14 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
     return;
   }
 
-  await withStore((db) => {
+  await withStoreTx((db) => {
     const found = findRun(db, runId);
     if (!found) return;
     found.bundle.session.currentPlanVersion = built.plan.version;
     found.run.status = "SUCCEEDED";
     found.run.finishedAt = realNowIso();
     found.run.leaseOwner = null;
-  });
+  }, { runId });
   await appendEvent(runId, "PLAN_APPLIED", `行程 v${built.plan.version} を作成`);
   await appendEvent(runId, "RUN_FINISHED", "完了");
 }

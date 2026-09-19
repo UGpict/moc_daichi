@@ -1,5 +1,5 @@
 import { json, requireUid } from "@/server/api/http";
-import { withStore } from "@/server/repositories/store";
+import { readStore } from "@/server/repositories/store";
 
 export async function GET(
   request: Request,
@@ -8,14 +8,14 @@ export async function GET(
   const auth = await requireUid(request);
   if ("error" in auth) return auth.error;
   const { id } = await ctx.params;
-  const result = await withStore((db) => {
+  const result = await readStore((db) => {
     for (const couple of Object.values(db.couples)) {
       if (couple.couple.ownerUid !== auth.uid) continue;
       const replay = couple.replays[id];
       if (replay) return { ok: true as const, replay };
     }
     return { ok: false as const, status: 404 as const, error: "not found" };
-  });
+  }, { replayId: id, ownerUid: auth.uid });
   if (!result.ok) return json({ error: result.error }, result.status);
   return json(result);
 }
