@@ -89,7 +89,8 @@ export function PreferenceSwipe(props: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-soft">
-        {props.subject === "SELF" ? "自分の希望" : "相手について分かっていること"} · 右が気になる、左が今回はパス。ボタンでも同じです。長期記憶にはしません。
+        {props.subject === "SELF" ? "自分の希望" : "相手について分かっていること"}
+        。右スワイプまたは「気になる」、左または「パス」。
       </p>
       {note ? <p className="text-xs text-ink-soft">{note}</p> : null}
       {error ? <p className="text-sm text-rose">{error}</p> : null}

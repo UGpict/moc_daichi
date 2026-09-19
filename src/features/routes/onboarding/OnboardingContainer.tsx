@@ -46,7 +46,7 @@ export function OnboardingContainer() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-ink-soft">
-        ステップ {step + 1} / 3 · スキップできます。実在スポットのカードで今回の希望だけを選びます。承認済みの長期記憶にはしません。
+        ステップ {step + 1} / 3 · 実在スポットのカードで今回の希望だけを選びます（スキップ可・長期記憶にはしません）。
       </p>
       {step === 0 ? <PreferenceSwipe key="self" subject="SELF" liked={selfLiked} onChange={setSelfLiked} /> : null}
       {step === 1 ? (
