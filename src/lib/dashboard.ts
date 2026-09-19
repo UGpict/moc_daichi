@@ -5,7 +5,12 @@ import {
   hasReceivedFirstReply,
   isWaitingForReply,
 } from "./inquiry";
-import { isCaseInquiryResolved, referenceTotal } from "./procedure";
+import {
+  isCaseInquiryResolved,
+  isDomicileConfirmed,
+  referenceTotal,
+} from "./procedure";
+import { getProcedureView } from "./procedure-view";
 import { CREMATORY_NAME, FUNERAL_HOME, ROLES } from "./sample-data";
 import type {
   ActivityItem,
@@ -17,74 +22,17 @@ import type {
 } from "./types";
 
 export function getShirubeReport(state: DemoState): ShirubeReport {
+  if (state.track === "procedure") {
+    const view = getProcedureView(state);
+    return {
+      message: view.prompt,
+      next: view.detail || view.waiting || "",
+    };
+  }
   if (state.permit.handedOver) {
     return {
-      message: "火葬許可証の受領と、火葬場への引渡しを確認しました。",
-      next: "火葬の実施や葬儀の完了までは、この体験では扱いません。",
-    };
-  }
-  if (state.permit.received) {
-    return {
-      message: "葬儀社担当者が火葬許可証を受領した、と報告がありました。",
-      next: "火葬場への引渡し報告を待ちます。交付・受領・引渡しは別の確認です。",
-    };
-  }
-  if (state.permit.issued) {
-    return {
-      message: "自治体から火葬許可証の交付連絡が届きました。",
-      next: "担当者の受領報告と、火葬場への引渡し報告を分けて確認します。",
-    };
-  }
-  if (
-    state.caseInquiry.staffWillHandle &&
-    !state.caseInquiry.staffCompleted
-  ) {
-    return {
-      message:
-        "対応予定の連絡が届きました。修正・確認の完了報告を待っています。",
-      next: "「対応します」だけでは、照会はまだ解決していません。",
-    };
-  }
-  if (state.caseInquiry.checkSent && !state.caseInquiry.staffCompleted) {
-    return {
-      message: "葬儀社へ、申請書と予約内容の照合を依頼しました。",
-      next: "担当者の完了報告と、自治体側の確認報告の両方を待ちます。",
-    };
-  }
-  if (state.caseInquiry.received && !state.caseInquiry.checkApproved) {
-    return {
-      message: "自治体から、申請書の火葬場名と予約内容の確認照会が届きました。",
-      next: "葬儀社への確認案をまとめました。内容を見て承認してください。",
-    };
-  }
-  if (state.formStatus === "submitted") {
-    return {
-      message: "窓口への提出準備を記録しました。正式な受理は、自治体の判断です。",
-      next: "不備照会があれば、内容を確認してから対応します。",
-    };
-  }
-  if (state.scheduleStatus === "awaiting_adjust_approval") {
-    return {
-      message: `翌日なら予約できるそうです。安置費用が11,000円増えるため、参考額は${formatYen(referenceTotal(state))}になります。申請書案の日程も確認が必要です。`,
-      next: "変更内容を確認し、調整の依頼だけ承認してください。予約はまだ確定しません。",
-    };
-  }
-  if (state.scheduleStatus === "awaiting_confirm") {
-    return {
-      message: "日程変更による費用と書類への影響を整理し、調整を依頼しました。",
-      next: "葬儀社の確定報告を待っています。承認だけで予約確定にはしません。",
-    };
-  }
-  if (state.scheduleStatus === "confirmed" && state.formStatus === "updated") {
-    return {
-      message: "葬儀社から翌日枠の確定報告がありました。申請書案の火葬日も合わせました。",
-      next: "届出人と持参者を混同せず、提出内容を確認してください。",
-    };
-  }
-  if (state.track === "procedure" && state.scheduleStatus === "adjusting") {
-    return {
-      message: "死亡診断書は受領済みです。本籍は空欄のまま、確認先だけ残しています。",
-      next: "今回の体験では斎場予約を先に進めます。火葬日程の返事を待ちます。",
+      message: "火葬許可証は佐藤さんが受け取り、火葬場への引渡しも確認できました。",
+      next: "この体験は、許可証の受領と引渡しの確認までです。",
     };
   }
   if (state.inquiryStatus === "awaiting_followup_approval") {
@@ -145,8 +93,8 @@ export function getApprovals(state: DemoState): ApprovalItem[] {
   }
   if (
     state.scheduleStatus === "confirmed" &&
-    state.formStatus === "updated" &&
-    state.domicileStatus === "family_will_attach"
+    state.formStatus === "ready" &&
+    isDomicileConfirmed(state)
   ) {
     items.push({
       id: "approve_submit",
@@ -221,11 +169,18 @@ export function getWaiting(state: DemoState): DashboardItem[] {
       href: "/demo/agent",
     });
   }
-  if (state.track === "procedure" && state.domicileStatus === "ask_family") {
+  if (
+    state.track === "procedure" &&
+    (state.domicileStatus === "consulting_sent" ||
+      state.domicileStatus === "sample_provided")
+  ) {
     items.push({
       id: "wait-domicile",
-      title: `${ROLES.notifier.name}さんへの本籍の確認`,
-      detail: "本籍は記入せず、戸籍で確認してもらう旨だけ伝えています。",
+      title: "本籍の確認",
+      detail:
+        state.domicileStatus === "consulting_sent"
+          ? "確認方法を担当者に相談しています。"
+          : "残されていた資料の内容を担当者へ共有しています。",
       href: "/demo/procedure",
     });
   }
@@ -351,11 +306,11 @@ export function getActivity(state: DemoState): ActivityItem[] {
       id: "domicile",
       title: "本籍などの不足情報",
       checked: "誰に確認するか",
-      found: `${ROLES.notifier.name}さんに、戸籍で本籍を確認してもらう。`,
+      found: `${ROLES.notifier.name}さんと、確認方法を担当者に相談する。`,
       unresolved:
-        state.domicileStatus === "family_will_attach"
-          ? "本籍の文字は未入手のため空欄"
-          : "本籍は未確認。推測では埋めません。",
+        state.domicileStatus === "staff_recorded"
+          ? null
+          : "本籍はまだ確認できていません。",
     });
   }
   if (state.scheduleStatus !== "not_started" && state.scheduleStatus !== "adjusting") {

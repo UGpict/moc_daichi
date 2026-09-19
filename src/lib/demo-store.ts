@@ -3,6 +3,7 @@ import {
   applyUserAction,
   canApplyEvent,
   canApplyUserAction,
+  PROCEDURE_USER_ACTIONS,
 } from "@/lib/events";
 import {
   beginProcedureFromPrep,
@@ -110,7 +111,15 @@ export function applyDemoUserAction(action: UserActionId) {
   if (!canApplyUserAction(snapshot, action)) {
     return;
   }
-  commit(applyUserAction(snapshot, action));
+  let next = applyUserAction(snapshot, action);
+  if (PROCEDURE_USER_ACTIONS.includes(action)) {
+    next = {
+      ...next,
+      autoPlay: true,
+      nextAutoAt: Date.now() + REPLY_DELAY_MS,
+    };
+  }
+  commit(next);
 }
 
 export function setAutoPlay(running: boolean) {

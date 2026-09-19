@@ -22,6 +22,13 @@ describe("demo state persistence", () => {
     assert.equal(
       parseDemoState({
         ...DEFAULT_DEMO_STATE,
+        version: 2,
+      }),
+      null,
+    );
+    assert.equal(
+      parseDemoState({
+        ...DEFAULT_DEMO_STATE,
         inquiryStatus: "sent_to_llm",
       }),
       null,

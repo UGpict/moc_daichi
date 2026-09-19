@@ -82,9 +82,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
     const next = getNextAutoEvent(state);
     if (next === "wait_user" || next === null) {
-      if (state.autoPlay) {
-        setAutoPlay(false);
-      }
       return;
     }
 
