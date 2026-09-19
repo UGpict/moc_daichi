@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { getEnv } from "../src/config/env";
@@ -31,22 +31,25 @@ async function portOpen(): Promise<boolean> {
 }
 
 function killDevStack() {
-  for (const cmd of [
-    "pkill -f 'tsx scripts/dev.ts'",
-    "pkill -f 'src/worker/index.ts'",
-    "pkill -f 'next-server'",
-    "pkill -f 'next dev -p 3000'",
-  ]) {
+  const needles = ["next-server", "next dev", "src/worker/index.ts", "scripts/dev.ts"];
+  const self = process.pid;
+  for (const name of readdirSync("/proc")) {
+    if (!/^\d+$/.test(name)) continue;
+    const pid = Number(name);
+    if (pid === self) continue;
+    let cmd = "";
     try {
-      execSync(cmd, { stdio: "ignore" });
+      cmd = readFileSync(`/proc/${pid}/cmdline`, "utf8").replace(/\0/g, " ");
     } catch {
-      /* ignore */
+      continue;
     }
-  }
-  try {
-    execSync("lsof -ti :3000 | xargs -r kill -9", { stdio: "ignore" });
-  } catch {
-    /* ignore */
+    if (cmd.includes("live-demo.ts")) continue;
+    if (!needles.some((n) => cmd.includes(n))) continue;
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* already gone */
+    }
   }
 }
 
