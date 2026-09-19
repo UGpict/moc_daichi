@@ -51,6 +51,7 @@ describe("cost calculation", () => {
       transportKm: 30,
       nightTransport: false,
     });
+    assert.equal(fiveDays.total, 710_500);
     assert.equal(fiveDays.total, 699_500 + RATES.stayExtensionPerDay);
 
     const fortyKm = calculateReferenceCost({

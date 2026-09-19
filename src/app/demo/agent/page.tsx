@@ -64,7 +64,7 @@ function MessageBubble({
 }
 
 export default function InquiryPage() {
-  const { state, approveInquiry, approveFollowup } = useDemo();
+  const { state, applyAction } = useDemo();
   const { inquiryStatus } = state;
   const sentFirst = hasSentFirstInquiry(inquiryStatus);
   const gotFirst = hasReceivedFirstReply(inquiryStatus);
@@ -194,12 +194,12 @@ export default function InquiryPage() {
 
       <StickyActions>
         {inquiryStatus === "awaiting_approval" ? (
-          <PrimaryButton type="button" onClick={approveInquiry}>
+          <PrimaryButton type="button" onClick={() => applyAction("approve_inquiry")}>
             この内容で問い合わせる（デモ）
           </PrimaryButton>
         ) : null}
         {inquiryStatus === "awaiting_followup_approval" ? (
-          <PrimaryButton type="button" onClick={approveFollowup}>
+          <PrimaryButton type="button" onClick={() => applyAction("approve_followup")}>
             再質問する（デモ）
           </PrimaryButton>
         ) : null}

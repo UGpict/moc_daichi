@@ -18,7 +18,7 @@ describe("demo state persistence", () => {
     assert.equal(parsed?.conditions.nightTransport, true);
 
     assert.equal(parseDemoState(null), null);
-    assert.equal(parseDemoState({ version: 2 }), null);
+    assert.equal(parseDemoState({ version: 1 }), null);
     assert.equal(
       parseDemoState({
         ...DEFAULT_DEMO_STATE,

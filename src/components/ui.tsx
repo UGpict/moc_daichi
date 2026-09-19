@@ -35,13 +35,15 @@ export function PrimaryLink({
   href,
   children,
   className = "",
+  onClick,
 }: {
   href: string;
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
 }) {
   return (
-    <Link href={href} className={`${primaryClassName} ${className}`}>
+    <Link href={href} onClick={onClick} className={`${primaryClassName} ${className}`}>
       {children}
     </Link>
   );
@@ -51,13 +53,15 @@ export function SecondaryLink({
   href,
   children,
   className = "",
+  onClick,
 }: {
   href: string;
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
 }) {
   return (
-    <Link href={href} className={`${secondaryClassName} ${className}`}>
+    <Link href={href} onClick={onClick} className={`${secondaryClassName} ${className}`}>
       {children}
     </Link>
   );
