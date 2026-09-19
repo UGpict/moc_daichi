@@ -22,6 +22,7 @@ export type PlanProposal = z.infer<typeof planProposalSchema>;
 
 export const reflectionStrictSchema = z.object({
   observations: z.array(z.string()),
+  hypotheses: z.array(z.string()),
   uncertainties: z.array(z.string()),
   clarification: z
     .object({
@@ -45,12 +46,40 @@ export const reflectionStrictSchema = z.object({
 });
 
 export const agentActionLlmSchema = z.object({
-  type: z.enum(["CALL_TOOLS", "PROPOSE_PLAN", "ASK_USER", "FINISH", "STOP"]),
+  type: z.enum(["CALL_TOOLS", "PROPOSE_PLAN", "ASK_USER", "STOP"]),
   reason: z.string(),
-  toolNames: z.array(z.string()).optional(),
-  question: z.string().optional(),
-  missingFields: z.array(z.string()).optional(),
+  toolNames: z.array(z.string()),
+  orderedSpotIds: z.array(z.string()),
+  rejected: z.array(z.object({ spotId: z.string(), reason: z.string() })),
+  assumptions: z.array(z.string()),
+  questionPrompt: z.string().nullable(),
+  questionOptions: z.array(z.string()),
+  missingFields: z.array(z.string()),
+  lastValidationSeen: z.string().nullable(),
 });
+export type AgentDecisionLlm = z.infer<typeof agentActionLlmSchema>;
+
+export const agentActionCoerceSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = raw as Record<string, unknown>;
+  const type = ["CALL_TOOLS", "PROPOSE_PLAN", "ASK_USER", "STOP"].includes(String(o.type))
+    ? o.type
+    : Array.isArray(o.orderedSpotIds) && (o.orderedSpotIds as unknown[]).length
+      ? "PROPOSE_PLAN"
+      : "CALL_TOOLS";
+  return {
+    type,
+    reason: String(o.reason ?? o.rationale ?? ""),
+    toolNames: asStringArray(o.toolNames ?? o.tools),
+    orderedSpotIds: asStringArray(o.orderedSpotIds ?? o.selectedSpotIds),
+    rejected: Array.isArray(o.rejected) ? o.rejected : [],
+    assumptions: asStringArray(o.assumptions),
+    questionPrompt: typeof o.questionPrompt === "string" ? o.questionPrompt : typeof o.question === "string" ? o.question : null,
+    questionOptions: asStringArray(o.questionOptions ?? (typeof o.question === "object" && o.question && "options" in o.question ? (o.question as { options?: unknown }).options : [])),
+    missingFields: asStringArray(o.missingFields),
+    lastValidationSeen: typeof o.lastValidationSeen === "string" ? o.lastValidationSeen : null,
+  };
+}, agentActionLlmSchema);
 
 function asStringArray(value: unknown): unknown {
   if (value == null) return [];
@@ -102,12 +131,14 @@ export const reflectionLlmSchema = z.preprocess((raw) => {
   return {
     ...o,
     observations: asStringArray(o.observations),
+    hypotheses: asStringArray(o.hypotheses),
     uncertainties: asStringArray(o.uncertainties),
     clarification: asClarification(o.clarification),
     memoryCandidates: asCandidates(o.memoryCandidates),
   };
 }, z.object({
   observations: z.array(z.string()).default([]),
+  hypotheses: z.array(z.string()).default([]),
   uncertainties: z.array(z.string()).default([]),
   clarification: z
     .object({
@@ -138,7 +169,10 @@ export function repairHintFor(schemaName: string): string {
     return '直前のJSONはスキーマ不一致。orderedSpotIds（候補idのみ）、rejected、assumptions、tradeoffs を含むJSONだけを返す。未知IDは使わない。';
   }
   if (schemaName === "reflection") {
-    return '直前のJSONはスキーマ不一致。observations と uncertainties は文字列配列。memoryCandidates はオブジェクト配列（subject, type, content, sourceType, evidenceQuote, strength, scope）。clarification は {prompt, options[2-6]} か null。行程の selectedSpotIds は不要。';
+    return '直前のJSONはスキーマ不一致。observations / hypotheses / uncertainties は文字列配列。HYPOTHESIS を OBSERVATION に書き換えない。memoryCandidates は観察または確認済みのみ。clarification は {prompt, options[2-6]} か null。';
+  }
+  if (schemaName === "agentDecision") {
+    return '直前のJSONはスキーマ不一致。type は CALL_TOOLS | PROPOSE_PLAN | ASK_USER | STOP。toolNames, orderedSpotIds, rejected, assumptions, questionPrompt, questionOptions, missingFields, lastValidationSeen, reason を返す。';
   }
   return "直前のJSONはスキーマ不一致。指定スキーマのキーだけを返す。";
 }

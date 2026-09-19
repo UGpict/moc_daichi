@@ -1,4 +1,4 @@
-import { json, requireUid } from "@/server/api/http";
+import { json, persistHttp, requireUid } from "@/server/api/http";
 import { createSession, listSessions } from "@/server/api/actions";
 
 export async function GET(
@@ -21,7 +21,11 @@ export async function POST(
   if ("error" in auth) return auth.error;
   const { id } = await ctx.params;
   const body = await request.json();
-  const result = await createSession(auth.uid, id, body);
-  if (!result.ok) return json({ error: result.error }, result.status);
-  return json({ sessionId: result.id, input: result.input }, 201);
+  try {
+    const result = await createSession(auth.uid, id, body);
+    if (!result.ok) return json({ error: result.error }, result.status);
+    return json({ sessionId: result.id, input: result.input }, 201);
+  } catch (error) {
+    return persistHttp(error) ?? Promise.reject(error);
+  }
 }

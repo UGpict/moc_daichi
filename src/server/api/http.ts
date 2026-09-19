@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEnv } from "@/config/env";
 import { verifyRequestToken } from "@/server/auth";
+import { isPersistBlocked } from "@/server/repositories/persistErrors";
 
 export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -24,4 +25,27 @@ export async function requireUid(request: Request): Promise<{ uid: string } | { 
 
 export function idempotencyKey(request: Request): string | null {
   return request.headers.get("idempotency-key");
+}
+
+export function persistHttp(error: unknown): NextResponse | null {
+  if (!isPersistBlocked(error)) return null;
+  return json(
+    {
+      error: error.message,
+      persistKind: error.kind,
+      blocked: true,
+      outcome: "BLOCKED",
+    },
+    503,
+  );
+}
+
+export async function withPersistHttp<T>(fn: () => Promise<T>): Promise<T | NextResponse> {
+  try {
+    return await fn();
+  } catch (error) {
+    const http = persistHttp(error);
+    if (http) return http;
+    throw error;
+  }
 }

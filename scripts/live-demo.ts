@@ -4,12 +4,24 @@ import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { getEnv } from "../src/config/env";
 import { tokyoToday } from "../src/lib/time";
+import {
+  blockedAll,
+  judgment,
+  memoryInfluenceVerdict,
+  rainVerdict,
+  reflectionQuestionVerdict,
+  scoreOutcome,
+  type CriterionJudgment,
+  type RunOutcome,
+} from "../src/domain/demo/criteria61";
+import { isPersistBlocked } from "../src/server/repositories/persistErrors";
 
 const BASE = process.env.DEMO_BASE_URL ?? "http://127.0.0.1:3000";
 const five = process.argv.includes("--five");
 
 type Report = {
   ok: boolean;
+  outcome: RunOutcome;
   git?: string;
   runIds: string[];
   durationsMs: number[];
@@ -17,6 +29,8 @@ type Report = {
   notes: string[];
   failures: string[];
   repairCount: number;
+  criteria: CriterionJudgment[];
+  persistKind?: string;
 };
 
 function sleep(ms: number) {
@@ -131,18 +145,28 @@ async function waitRun(token: string, runId: string, timeoutMs = 120_000) {
   }
 }
 
+function reportOf(partial: Omit<Report, "ok" | "outcome">): Report {
+  const outcome = scoreOutcome(partial.criteria);
+  return { ...partial, outcome, ok: outcome === "完全成功" };
+}
+
 async function onePass(): Promise<Report> {
   const notes: string[] = [];
   const failures: string[] = [];
   const runIds: string[] = [];
   const durationsMs: number[] = [];
   const costs: unknown[] = [];
+  const criteria: CriterionJudgment[] = [];
   let repairCount = 0;
+  let persistKind = "ok";
   const git = existsSync(".git")
     ? execSync("git rev-parse --short HEAD").toString().trim()
     : undefined;
+  const empty = () =>
+    reportOf({ git, runIds, durationsMs, costs, notes, failures, repairCount, criteria, persistKind });
 
   const env = getEnv();
+  try {
   let token: string | undefined = process.env.DEMO_FIREBASE_ID_TOKEN;
   if (!token) {
     if (env.profile === "LIVE") {
@@ -161,6 +185,28 @@ async function onePass(): Promise<Report> {
   }
   if (!token) throw new Error("no token");
   const me = await api("/api/me", { token });
+  persistKind = String(me.persist?.kind ?? (env.persistBackend === "firestore" ? "unknown" : "ok"));
+  if (persistKind === "ok" && env.profile === "LIVE" && env.persistBackend === "firestore") {
+    criteria.push(judgment("persist_backend", "PASS", me.persist?.detail ?? "Firestore"));
+  } else if (env.profile !== "LIVE") {
+    criteria.push(judgment("persist_backend", "PASS", `DEV/json (${persistKind})`));
+  } else if (persistKind === "CREDENTIALS" || persistKind === "UNIMPLEMENTED" || persistKind === "CONNECT") {
+    criteria.push(
+      judgment(
+        "persist_backend",
+        "BLOCKED",
+        `${persistKind}: ${me.persist?.detail ?? me.persistBlockers?.[0]?.item ?? "persist blocked"}`,
+      ),
+    );
+  } else {
+    criteria.push(judgment("persist_backend", "FAIL", `LIVE persist kind=${persistKind} backend=${me.persist?.backend}`));
+  }
+  if (env.profile === "LIVE" && persistKind !== "ok") {
+    notes.push(`persist BLOCKED ${persistKind}`);
+    criteria.splice(0, criteria.length, ...blockedAll(`persist ${persistKind}`, criteria.find((c) => c.id === "persist_backend")));
+    failures.push(`persist ${persistKind}`);
+    return empty();
+  }
   const couple = await api("/api/couples", {
     method: "POST",
     token,
@@ -268,19 +314,35 @@ async function onePass(): Promise<Report> {
 
   const snap1 = await api(`/api/sessions/${session.sessionId}`, { token });
   const items = snap1.plan?.items ?? [];
-  if (items.length < 3 || items.length > 4) failures.push(`spot count ${items.length}`);
+  if (items.length < 3 || items.length > 4) {
+    failures.push(`spot count ${items.length}`);
+    criteria.push(judgment("spots_3_to_4", "FAIL", `items=${items.length}`));
+  } else {
+    criteria.push(judgment("spots_3_to_4", "PASS", `items=${items.length}`));
+  }
   const locked = items.find((i: { locked: boolean }) => i.locked);
-  if (!locked) failures.push("locked item missing");
+  if (!locked) {
+    failures.push("locked item missing");
+    criteria.push(judgment("locked_item", "FAIL", "locked item missing"));
+  } else {
+    criteria.push(judgment("locked_item", "PASS", locked.id ?? "locked"));
+  }
   if (snap1.plan?.openings?.some((o: { state: string }) => o.state === "CLOSED")) {
     failures.push("CLOSED present");
+    criteria.push(judgment("no_closed", "FAIL", "CLOSED present"));
+  } else {
+    criteria.push(judgment("no_closed", "PASS", "no CLOSED"));
   }
   notes.push(`first status=${first.view.run.status} validation=${snap1.plan?.validation?.state} items=${items.length} runs=${(snap1.runs as {id:string;status:string;kind:string}[]).map((r)=>r.kind+":"+r.status).join(",")}`);
   if (snap1.plan?.validation?.state === "FAIL") {
     failures.push(`initial validation FAIL: ${(snap1.plan.validation.issues as {code:string}[]).map((i)=>i.code).join(",")}`);
+    criteria.push(judgment("initial_not_fail", "FAIL", `FAIL ${(snap1.plan.validation.issues as {code:string}[]).map((i)=>i.code).join(",")}`));
+  } else {
+    criteria.push(judgment("initial_not_fail", "PASS", String(snap1.plan?.validation?.state ?? "none")));
   }
   if (!["SUCCEEDED", "WAITING_APPROVAL"].includes(first.view.run.status)) {
     failures.push(`initial run ${first.view.run.status}`);
-    return { ok: false, git, runIds, durationsMs, costs, notes, failures, repairCount };
+    return empty();
   }
 
   await api(`/api/sessions/${session.sessionId}/progress`, {
@@ -316,8 +378,18 @@ async function onePass(): Promise<Report> {
   const approval = (snapRain.approvals as { status: string; id: string; kind: string }[]).find(
     (a) => a.status === "PENDING" && a.kind === "PLAN_APPLY",
   );
-  notes.push(auto ? "rain AUTO_NOTIFY" : approval ? "rain APPROVAL" : `rain status=${rainWait.view.run.status}`);
-  if (!auto && !approval) failures.push("rain produced neither notify nor approval");
+  const rainReasons = ((snapRain.events as { type: string; payload?: { reasons?: string[]; validation?: string } }[]) ?? [])
+    .filter((e) => e.type === "APPROVAL_REQUIRED" || e.type === "PLAN_AUTO_APPLIED")
+    .flatMap((e) => e.payload?.reasons ?? []);
+  const rainJudge = rainVerdict({
+    autoApplied: auto,
+    pendingApproval: Boolean(approval),
+    nextValidationState: snapRain.plan?.validation?.state ?? null,
+    reasons: rainReasons,
+  });
+  criteria.push(rainJudge);
+  notes.push(auto ? "rain AUTO_NOTIFY" : approval ? "rain APPROVAL (not complete success)" : `rain status=${rainWait.view.run.status}`);
+  if (rainJudge.verdict === "FAIL") failures.push(rainJudge.detail);
   if (approval) {
     await api(`/api/approvals/${approval.id}/decision`, {
       method: "POST",
@@ -343,10 +415,20 @@ async function onePass(): Promise<Report> {
   const snapDelay = await api(`/api/sessions/${session.sessionId}`, { token });
   if (snapDelay.session.currentPlanVersion !== beforeDelayVersion) {
     failures.push("plan changed before delay approval");
+    criteria.push(judgment("delay_not_applied_early", "FAIL", "plan changed before delay approval"));
+  } else {
+    criteria.push(judgment("delay_not_applied_early", "PASS", `version=${beforeDelayVersion}`));
   }
   if (delayWait.view.run.status !== "WAITING_APPROVAL") {
     notes.push(`delay status=${delayWait.view.run.status} (expected WAITING_APPROVAL)`);
-    if (delayWait.view.run.status === "SUCCEEDED") failures.push("delay auto-applied");
+    if (delayWait.view.run.status === "SUCCEEDED") {
+      failures.push("delay auto-applied");
+      criteria.push(judgment("delay_waiting_approval", "FAIL", "delay auto-applied"));
+    } else {
+      criteria.push(judgment("delay_waiting_approval", "FAIL", `status=${delayWait.view.run.status}`));
+    }
+  } else {
+    criteria.push(judgment("delay_waiting_approval", "PASS", "WAITING_APPROVAL"));
   }
 
   const refl = await api(`/api/sessions/${session.sessionId}/runs`, {
@@ -357,10 +439,15 @@ async function onePass(): Promise<Report> {
   const reflWait = await waitRun(token, refl.runId);
   runIds.push(refl.runId);
   notes.push(`reflection status=${reflWait.view.run.status}`);
+  const reflJudge = reflectionQuestionVerdict(
+    reflWait.view.run.status,
+    Boolean(reflWait.view.run.waitingQuestion?.id),
+  );
+  criteria.push(reflJudge);
+  if (reflJudge.verdict === "FAIL") failures.push(reflJudge.detail);
   if (reflWait.view.run.status === "WAITING_INPUT") {
     const q = reflWait.view.run.waitingQuestion;
-    if (!q?.id) failures.push("WAITING_INPUT but no question");
-    else {
+    if (q?.id) {
       await api(`/api/runs/${refl.runId}/answers`, {
         method: "POST",
         token,
@@ -371,25 +458,37 @@ async function onePass(): Promise<Report> {
       });
     }
   } else if (reflWait.view.run.status === "WAITING_APPROVAL") {
-    notes.push("確認質問なし。保存候補の承認へ");
-  } else {
-    failures.push(`reflection ended ${reflWait.view.run.status}`);
+    notes.push("確認質問なし。保存候補の承認へ（完全成功にしない）");
   }
   const snapMem = await api(`/api/sessions/${session.sessionId}`, { token });
-  const pendingMem = (snapMem.approvals as { kind: string; status: string; id: string }[]).find(
+  const pendingMems = (snapMem.approvals as { kind: string; status: string; id: string }[]).filter(
     (a) => a.kind === "MEMORY_SAVE" && a.status === "PENDING",
   );
-  if ((snapMem.memories as unknown[]).length > 0) failures.push("memory saved before approval");
-  if (!pendingMem) failures.push("no memory approval");
-  else {
-    await api(`/api/approvals/${pendingMem.id}/decision`, {
-      method: "POST",
-      token,
-      body: JSON.stringify({ decision: "APPROVE" }),
-    });
+  if ((snapMem.memories as unknown[]).length > 0) {
+    failures.push("memory saved before approval");
+    criteria.push(judgment("memory_not_saved_before_approval", "FAIL", "memory saved before approval"));
+  } else {
+    criteria.push(judgment("memory_not_saved_before_approval", "PASS", "empty before approval"));
+  }
+  if (!pendingMems.length) {
+    failures.push("no memory approval");
+    criteria.push(judgment("memory_saved_after_approval", "FAIL", "no memory approval"));
+  } else {
+    for (const pendingMem of pendingMems) {
+      await api(`/api/approvals/${pendingMem.id}/decision`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({ decision: "APPROVE" }),
+      });
+    }
   }
   const afterMem = await api(`/api/sessions/${session.sessionId}`, { token });
-  if ((afterMem.memories as unknown[]).length < 1) failures.push("memory missing after approval");
+  if ((afterMem.memories as unknown[]).length < 1) {
+    failures.push("memory missing after approval");
+    if (pendingMems.length) criteria.push(judgment("memory_saved_after_approval", "FAIL", "memory missing after approval"));
+  } else if (pendingMems.length) {
+    criteria.push(judgment("memory_saved_after_approval", "PASS", `n=${(afterMem.memories as unknown[]).length}`));
+  }
 
   const next = await api(`/api/couples/${couple.id}/sessions`, {
     method: "POST",
@@ -406,8 +505,10 @@ async function onePass(): Promise<Report> {
   durationsMs.push(nextWait.ms);
   const snapNext = await api(`/api/sessions/${next.sessionId}`, { token });
   const influences = snapNext.plan?.memoryInfluences ?? [];
-  if (!influences.length) notes.push("next plan has no visible memory influence");
-  else notes.push(`memory influence ${influences.map((i: { effect: string }) => i.effect).join(",")}`);
+  const inflJudge = memoryInfluenceVerdict(influences);
+  criteria.push(inflJudge);
+  if (inflJudge.verdict === "FAIL") failures.push(inflJudge.detail);
+  notes.push(inflJudge.detail);
   const firstNames = items.map((i: { spotId: string }) => snap1.spots?.[i.spotId]?.name ?? i.spotId);
   const nextNames = (snapNext.plan?.items ?? []).map(
     (i: { spotId: string }) => snapNext.spots?.[i.spotId]?.name ?? i.spotId,
@@ -442,16 +543,21 @@ async function onePass(): Promise<Report> {
   await api(`/api/runs/${init.runId}/replay-export`, { method: "POST", token, body: "{}" });
 
   void me;
-  return {
-    ok: failures.length === 0,
-    git,
-    runIds,
-    durationsMs,
-    costs,
-    notes,
-    failures,
-    repairCount,
-  };
+  return empty();
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    notes.push(msg.slice(0, 400));
+    if (isPersistBlocked(error) || /persistKind|CREDENTIALS|UNIMPLEMENTED|ADC|Firestore/.test(msg)) {
+      persistKind = isPersistBlocked(error) ? error.kind : /UNIMPLEMENTED/.test(msg) ? "UNIMPLEMENTED" : "CREDENTIALS";
+      failures.push(`persist ${persistKind}`);
+      const persist = judgment("persist_backend", "BLOCKED", msg.slice(0, 240));
+      criteria.splice(0, criteria.length, ...blockedAll(`persist ${persistKind}`, persist));
+      return empty();
+    }
+    failures.push(msg.slice(0, 240));
+    if (!criteria.length) criteria.push(...blockedAll(msg.slice(0, 160)));
+    return empty();
+  }
 }
 
 async function main() {
@@ -494,16 +600,36 @@ async function main() {
     for (let i = 0; i < n; i++) {
       const report = await onePass();
       reports.push(report);
-      if (!report.ok) break;
     }
     mkdirSync("docs/reports", { recursive: true });
     const out = join("docs/reports", five ? "demo-five.json" : "demo-live.json");
-    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), reports }, null, 2));
+    writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), spec: "v0.4 §6.1", reports }, null, 2));
+    writeFileSync(
+      join("docs/reports", "criteria-61.json"),
+      JSON.stringify(
+        {
+          at: new Date().toISOString(),
+          spec: "v0.4 §6.1",
+          completeSuccess: reports.filter((r) => r.outcome === "完全成功").length,
+          outcomes: reports.map((r) => r.outcome),
+          criteria: reports.map((r, i) => ({ n: i + 1, outcome: r.outcome, persistKind: r.persistKind, criteria: r.criteria })),
+        },
+        null,
+        2,
+      ),
+    );
     const last = reports.at(-1);
     const totalRepairs = reports.reduce((n, r) => n + r.repairCount, 0);
     console.log(
       JSON.stringify(
-        { file: out, ok: reports.every((r) => r.ok), count: reports.length, totalRepairs, last },
+        {
+          file: out,
+          ok: reports.every((r) => r.ok),
+          count: reports.length,
+          outcomes: reports.map((r) => r.outcome),
+          totalRepairs,
+          last,
+        },
         null,
         2,
       ),

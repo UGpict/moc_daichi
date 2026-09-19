@@ -59,7 +59,7 @@ export type Db = {
 const STORE_PATH = join(process.cwd(), ".data", "store.json");
 const LOCK_PATH = join(process.cwd(), ".data", "store.lock");
 
-function emptyDb(): Db {
+export function emptyDb(): Db {
   return { couples: {}, idempotency: {}, tokens: {}, digests: {}, drafts: {} };
 }
 
@@ -116,7 +116,7 @@ function writeDb(db: Db) {
   renameSync(tmp, STORE_PATH);
 }
 
-export async function withStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+async function jsonWithStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
   const fd = await acquireLock();
   try {
     const db = readDb();
@@ -128,13 +128,29 @@ export async function withStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
   }
 }
 
-export async function readStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+async function jsonReadStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
   const fd = await acquireLock();
   try {
     return await fn(readDb());
   } finally {
     releaseLock(fd);
   }
+}
+
+export async function withStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+  const { getEnv } = await import("@/config/env");
+  const env = getEnv();
+  if (env.persistBackend === "json") return jsonWithStore(fn);
+  const { firestoreWithStore } = await import("./firestore/repo");
+  return firestoreWithStore(fn);
+}
+
+export async function readStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+  const { getEnv } = await import("@/config/env");
+  const env = getEnv();
+  if (env.persistBackend === "json") return jsonReadStore(fn);
+  const { firestoreReadStore } = await import("./firestore/repo");
+  return firestoreReadStore(fn);
 }
 
 export function findSession(
