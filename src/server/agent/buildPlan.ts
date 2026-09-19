@@ -40,6 +40,8 @@ export async function buildPlan(input: {
   ctx: ProviderCtx;
   dataMode: Plan["dataMode"];
   previousItems?: PlanItem[];
+  stayScale?: number;
+  travelMode?: PlanningInput["travelMode"];
 }): Promise<BuiltPlan> {
   const evidence: Evidence[] = [];
   const spots = { ...input.spots };
@@ -77,9 +79,11 @@ export async function buildPlan(input: {
   const prevBySpot = new Map((input.previousItems ?? []).map((i) => [i.spotId, i]));
 
   function baseStay(spot: Spot): number {
-    if (restCare && (spot.standingBurden.value === "HIGH" || spot.standingBurden.value === "MEDIUM")) return 35;
-    if (restCare && spot.restEase.value === "EASY") return 40;
-    return 50;
+    const scale = input.stayScale ?? 1;
+    let stay = 50;
+    if (restCare && (spot.standingBurden.value === "HIGH" || spot.standingBurden.value === "MEDIUM")) stay = 35;
+    else if (restCare && spot.restEase.value === "EASY") stay = 40;
+    return Math.max(25, Math.round(stay * scale));
   }
 
   function stayAndMemory(spot: Spot): { stay: number; memIds: string[] } {
@@ -210,7 +214,7 @@ export async function buildPlan(input: {
   const legs: TravelLeg[] = [];
   const meet = input.input.meet;
   const endPoint = input.input.end;
-  const mode = input.input.travelMode;
+  const mode = input.travelMode ?? input.input.travelMode;
 
   async function legBetween(
     from: { lat: number; lng: number; spotId: string | null; kind: TravelLeg["from"] },

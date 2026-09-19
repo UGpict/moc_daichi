@@ -1,8 +1,8 @@
 export const APP_NAME = "ふたりログ";
-export const SCHEMA_VERSION = "0.7.0";
-export const PROMPT_VERSION = "0.7.0";
-export const TOOL_VERSION = "0.7.0";
-export const MODEL_SETTINGS_VERSION = "0.7.0";
+export const SCHEMA_VERSION = "0.8.0";
+export const PROMPT_VERSION = "0.8.0";
+export const TOOL_VERSION = "0.8.0";
+export const MODEL_SETTINGS_VERSION = "0.8.0";
 export const PROVIDER_VERSION = "places-new-v1+open-meteo-v1";
 
 export const TIME_ZONE = "Asia/Tokyo";
@@ -17,13 +17,14 @@ export const LIMITS = {
   maxRunsPerCouplePerDay: 20,
   maxInputChars: 2000,
   llmOutputRepairAttempts: 1,
+  maxPlanRepairAttempts: 3,
 } as const;
 
 export const DEADLINES_MS = {
-  INITIAL_PLAN: 60_000,
-  REPLAN: 30_000,
-  REFLECTION: 10_000,
-  NEXT_PLAN: 60_000,
+  INITIAL_PLAN: 90_000,
+  REPLAN: 45_000,
+  REFLECTION: 15_000,
+  NEXT_PLAN: 90_000,
 } as const;
 
 export const CACHE_TTL_MS = {

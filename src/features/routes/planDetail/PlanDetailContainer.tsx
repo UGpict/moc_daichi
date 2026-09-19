@@ -320,9 +320,15 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
             </div>
           ) : null}
           {data.memoryCandidates.length ? (
-            <p className="mt-3 text-sm text-ink-soft">
-              候補が {data.memoryCandidates.length} 件。承認するまで有効な記憶にはなりません。
-            </p>
+            <div className="mt-3 space-y-2 text-sm text-ink-soft">
+              <p>候補が {data.memoryCandidates.length} 件。承認するまで有効な記憶にはなりません。</p>
+              {data.memoryCandidates.map((c) => (
+                <p key={c.id} className={(c.injectionFlags ?? []).length ? "text-rose" : ""}>
+                  {c.content}
+                  {(c.injectionFlags ?? []).length ? ` （警告: ${(c.injectionFlags ?? []).join(",")}）` : ""}
+                </p>
+              ))}
+            </div>
           ) : null}
           {data.memories.some((m) => m.active) ? (
             <Button
@@ -348,21 +354,62 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
       <aside className="mt-6 lg:sticky lg:top-20 lg:mt-0 lg:self-start">
         <button
           type="button"
-          className="mb-2 text-sm text-rose lg:hidden"
+          className="mb-2 text-sm text-rose"
           onClick={() => setTraceOpen((v) => !v)}
         >
-          {traceOpen ? "判断トレースを閉じる" : "判断トレースを開く"}
+          {traceOpen ? "判断トレースを閉じる" : "判断トレースを開く（審査員向け）"}
         </button>
-        <Card className={cn("lg:block", traceOpen ? "block" : "hidden lg:block")}>
-          <CardTitle>判断トレース</CardTitle>
+        <Card className={traceOpen ? "block" : "hidden"}>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>判断 → 実行 → 記録</CardTitle>
+            <button type="button" className="hidden text-xs text-ink-soft underline lg:inline" onClick={() => setTraceOpen((v) => !v)}>
+              {traceOpen ? "閉じる" : "開く"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-ink-soft">
+            累計 LLM {cost.llm != null ? `${cost.llm.toFixed(3)}円` : "—"} / API {cost.api != null ? `${cost.api.toFixed(3)}円` : "—"} / hard {cost.hard} / mundane {cost.mundane}
+          </p>
           <ol className="mt-3 max-h-[70vh] space-y-2 overflow-auto text-sm">
-            {data.events.map((e) => (
-              <li key={e.eventId}>
-                <span className="text-ink-soft">{e.type}</span> {e.summary}
-                {e.actualModel ? <span className="text-ink-soft"> ({e.pool}/{e.actualModel})</span> : null}
-              </li>
-            ))}
+            {data.events.map((e) => {
+              const payload = e.payload as
+                | {
+                    reason?: string;
+                    strategy?: string;
+                    beforeIds?: string[];
+                    afterIds?: string[];
+                    failCodes?: string[];
+                    revalidation?: string;
+                    n?: number;
+                  }
+                | undefined;
+              return (
+                <li key={e.eventId} className="rounded-lg bg-paper-deep/50 p-2">
+                  <span className="text-ink-soft">{e.type}</span> {e.summary}
+                  {e.actualModel ? <span className="text-ink-soft"> ({e.pool}/{e.actualModel})</span> : null}
+                  {payload?.reason ? <p className="text-xs text-ink-soft">理由: {payload.reason}</p> : null}
+                  {e.type === "REPAIR_ATTEMPTED" && payload ? (
+                    <p className="text-xs">
+                      #{payload.n} {payload.strategy}: {(payload.beforeIds ?? []).join("→")} → {(payload.afterIds ?? []).join("→")} / {payload.revalidation}（{(payload.failCodes ?? []).join(",") || "—"}）
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
           </ol>
+          {data.memoryCandidates.length ? (
+            <div className="mt-3 space-y-1 text-xs">
+              <p className="text-ink-soft">承認待ちの記憶</p>
+              {data.memoryCandidates.map((c) => (
+                <p key={c.id} className={(c.injectionFlags ?? []).length ? "text-rose" : ""}>
+                  {c.content}
+                  {(c.injectionFlags ?? []).length ? ` （警告: ${(c.injectionFlags ?? []).join(",")}）` : ""}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          {data.memoryCandidates.some((c) => (c.injectionFlags ?? []).length) ? (
+            <p className="mt-3 text-xs text-rose">記憶候補に命令形・固定化の疑いがあります。承認前に内容を確認してください。</p>
+          ) : null}
         </Card>
       </aside>
     </div>

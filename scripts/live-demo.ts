@@ -16,6 +16,7 @@ type Report = {
   costs: unknown[];
   notes: string[];
   failures: string[];
+  repairCount: number;
 };
 
 function sleep(ms: number) {
@@ -117,7 +118,7 @@ async function firebaseAnonymous(): Promise<{ uid: string; token: string }> {
   return { uid: json.localId, token: json.idToken };
 }
 
-async function waitRun(token: string, runId: string, timeoutMs = 75_000) {
+async function waitRun(token: string, runId: string, timeoutMs = 120_000) {
   const start = Date.now();
   for (;;) {
     const view = await api(`/api/runs/${runId}`, { token });
@@ -136,6 +137,7 @@ async function onePass(): Promise<Report> {
   const runIds: string[] = [];
   const durationsMs: number[] = [];
   const costs: unknown[] = [];
+  let repairCount = 0;
   const git = existsSync(".git")
     ? execSync("git rev-parse --short HEAD").toString().trim()
     : undefined;
@@ -255,6 +257,14 @@ async function onePass(): Promise<Report> {
   runIds.push(init.runId);
   durationsMs.push(first.ms);
   costs.push(first.view.run.cost);
+  repairCount = ((first.view.events as { type: string }[]) ?? []).filter((e) => e.type === "REPAIR_ATTEMPTED").length;
+  notes.push(`repairs=${repairCount}`);
+  try {
+    const trace = await api(`/api/runs/${init.runId}/llm-trace`, { token });
+    notes.push(`llmTraceUsd=${trace.costUsd} jpy=${trace.costJpy} rows=${(trace.rows as unknown[]).length}`);
+  } catch {
+    notes.push("llm-trace missing");
+  }
 
   const snap1 = await api(`/api/sessions/${session.sessionId}`, { token });
   const items = snap1.plan?.items ?? [];
@@ -394,6 +404,36 @@ async function onePass(): Promise<Report> {
   const influences = snapNext.plan?.memoryInfluences ?? [];
   if (!influences.length) notes.push("next plan has no visible memory influence");
   else notes.push(`memory influence ${influences.map((i: { effect: string }) => i.effect).join(",")}`);
+  const firstNames = items.map((i: { spotId: string }) => snap1.spots?.[i.spotId]?.name ?? i.spotId);
+  const nextNames = (snapNext.plan?.items ?? []).map(
+    (i: { spotId: string }) => snapNext.spots?.[i.spotId]?.name ?? i.spotId,
+  );
+  notes.push(`memoryPlanDiff ${firstNames.join(">") || "∅"} => ${nextNames.join(">") || "∅"}`);
+  mkdirSync("docs/reports", { recursive: true });
+  writeFileSync(
+    join("docs/reports", "memory-plan-diff.json"),
+    JSON.stringify(
+      {
+        firstSessionId: session.sessionId,
+        nextSessionId: next.sessionId,
+        firstNames,
+        nextNames,
+        influences,
+      },
+      null,
+      2,
+    ),
+  );
+
+  try {
+    const sessionTrace = await api(`/api/sessions/${session.sessionId}/llm-trace`, { token });
+    notes.push(
+      `sessionTraceJpy=${sessionTrace.costJpy} runCostJpy=${sessionTrace.runCostJpy} match=${sessionTrace.matchesSum}`,
+    );
+    if (sessionTrace.matchesSum === false) failures.push("session llm-trace cost mismatch");
+  } catch {
+    notes.push("session llm-trace missing");
+  }
 
   await api(`/api/runs/${init.runId}/replay-export`, { method: "POST", token, body: "{}" });
 
@@ -406,6 +446,7 @@ async function onePass(): Promise<Report> {
     costs,
     notes,
     failures,
+    repairCount,
   };
 }
 
@@ -455,7 +496,14 @@ async function main() {
     const out = join("docs/reports", five ? "demo-five.json" : "demo-live.json");
     writeFileSync(out, JSON.stringify({ at: new Date().toISOString(), reports }, null, 2));
     const last = reports.at(-1);
-    console.log(JSON.stringify({ file: out, ok: reports.every((r) => r.ok), count: reports.length, last }, null, 2));
+    const totalRepairs = reports.reduce((n, r) => n + r.repairCount, 0);
+    console.log(
+      JSON.stringify(
+        { file: out, ok: reports.every((r) => r.ok), count: reports.length, totalRepairs, last },
+        null,
+        2,
+      ),
+    );
     if (!reports.every((r) => r.ok) || reports.length < n) process.exit(1);
   } finally {
     child?.kill("SIGTERM");

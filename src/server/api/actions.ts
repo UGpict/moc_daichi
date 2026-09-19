@@ -13,6 +13,7 @@ import { canApplyPlan } from "@/server/approvals/service";
 import { consumeDraft } from "@/server/agent/drafts";
 import { maskPii } from "@/server/privacy/mask";
 import { draftShareMessage } from "@/server/privacy/dto";
+import { detectInjection } from "@/server/security/injection";
 import { demoAllowed } from "@/server/auth";
 import { newId, sha256 } from "@/lib/ids";
 import { realNowIso, tokyoDateTime } from "@/lib/time";
@@ -363,6 +364,7 @@ export async function answerQuestion(uid: string, runId: string, questionId: str
           strength: "SOFT",
           scope: "NEXT_DATE",
           createdAt: realNowIso(),
+          injectionFlags: detectInjection(answer).map((f) => f.code),
         };
         const approvalId = newId("appr");
         found.couple.approvals[approvalId] = {
@@ -561,6 +563,7 @@ export async function reviseMemory(uid: string, memoryId: string, content: strin
       strength: found.memory.strength,
       scope: found.memory.scope,
       createdAt: realNowIso(),
+      injectionFlags: detectInjection(masked.masked).map((f) => f.code),
     };
     const approvalId = newId("appr");
     found.couple.approvals[approvalId] = {

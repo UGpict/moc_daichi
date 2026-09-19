@@ -1,6 +1,6 @@
 {
   "name": "futari-log",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
     "dev": "tsx scripts/dev.ts",
@@ -8,12 +8,13 @@
     "dev:worker": "tsx src/worker/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
-    "test": "tsx --test tests/plan.test.ts tests/privacy.test.ts tests/security.test.ts tests/preference-cards.test.ts tests/digest.test.ts tests/v07.test.ts tests/approvals.test.ts",
+    "test": "tsx --test tests/plan.test.ts tests/privacy.test.ts tests/security.test.ts tests/preference-cards.test.ts tests/digest.test.ts tests/v07.test.ts tests/approvals.test.ts tests/v08.test.ts",
     "build": "next build",
     "start": "tsx scripts/start.ts",
     "doctor": "tsx scripts/doctor.ts",
     "demo:live": "tsx scripts/live-demo.ts",
     "demo:five": "tsx scripts/live-demo.ts --five",
+    "demo:chaos": "tsx scripts/chaos.ts",
     "demo:reset": "tsx scripts/demo-reset.ts",
     "replay:export": "tsx scripts/replay-export.ts"
   },

@@ -1,4 +1,5 @@
 import { json, requireUid } from "@/server/api/http";
+import { DEMO_AREAS } from "@/config/areas";
 import { getEnv, publicBlockers } from "@/config/env";
 import { ownerCoupleId } from "@/server/api/actions";
 
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
     demoDate: env.demoDate,
     demoLat: env.demoLat,
     demoLng: env.demoLng,
+    areas: Object.values(DEMO_AREAS),
     blockers: publicBlockers(),
   });
 }

@@ -7,6 +7,7 @@ export type Me = {
   demoDate: string;
   demoLat: number;
   demoLng: number;
+  areas?: { id: string; name: string; lat: number; lng: number; stationQuery: string }[];
   blockers: { code: string; item: string }[];
 };
 
@@ -108,6 +109,7 @@ export type Snapshot = {
     at: string;
     actualModel: string | null;
     pool: string | null;
+    payload?: unknown;
   }[];
   approvals: {
     id: string;
@@ -117,7 +119,7 @@ export type Snapshot = {
     diff: { summary: string; fromVersion: number; toVersion: number } | null;
   }[];
   memories: { id: string; content: string; active: boolean; subject?: string; evidenceQuote?: string }[];
-  memoryCandidates: { id: string; content: string }[];
+  memoryCandidates: { id: string; content: string; injectionFlags?: string[] }[];
   overlays: string[];
   scenarios: { kind: string }[];
 };

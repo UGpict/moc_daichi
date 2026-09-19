@@ -3,7 +3,9 @@ import type { AppEvent, EventType, MemoryCandidate } from "@/domain/schemas";
 import { newId } from "@/lib/ids";
 import { realNowIso } from "@/lib/time";
 import { callLLM } from "@/server/llm";
-import { reflectionLlmSchema, repairHintFor } from "@/server/llm/taskSchemas";
+import { wrapUntrusted, systemFence } from "@/server/security/promptFence";
+import { detectInjection } from "@/server/security/injection";
+import { reflectionLlmSchema, reflectionStrictSchema, repairHintFor, type ReflectionLlm } from "@/server/llm/taskSchemas";
 import { maskPii } from "@/server/privacy/mask";
 import { candidateContentHash, validateMemoryCandidate } from "@/domain/memory/validateMemoryCandidate";
 import { findRun, withStore } from "@/server/repositories/store";
@@ -111,18 +113,16 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
     messages: [
       {
         role: "system",
-        content:
-          "振り返り原文（マスク済み）だけを根拠にする。原文に書かれている好み・疲労・制約は memoryCandidates に OBSERVATION として残す。evidenceQuote は原文からの抜粋。原文に原因（立つ/歩く等）が無い疲労は確定の苦手にせず、必要なら clarification を最大1問。原文だけで保存できるなら clarification は null。好みや疲労が原文にあるのに memoryCandidates を空にしない。仮説は sourceType=HYPOTHESIS。JSONのみ。",
+        content: `${systemFence("reflect")} 振り返り原文（マスク済み）だけを根拠にする。原文に書かれている好み・疲労・制約は memoryCandidates に OBSERVATION として残す。evidenceQuote は原文からの抜粋。好みや疲労が原文にあるのに memoryCandidates を空にしない。`,
       },
       {
         role: "user",
-        content: JSON.stringify({
-          maskedNote: masked,
-          reflectionId: reflection?.id ?? null,
-        }),
+        content: wrapUntrusted("reflection_note", { maskedNote: masked, reflectionId: reflection?.id ?? null }),
       },
     ],
     schema: reflectionLlmSchema,
+    strictSchema: reflectionStrictSchema,
+    coerceSchema: reflectionLlmSchema,
     runId,
     signal,
     mockValue: mock,
@@ -162,20 +162,15 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
     if (llm.costJpy == null && env.runtime === "LIVE") found.run.cost.unaccountedCalls += 1;
   });
 
-  if ((!llm.ok || !llm.data) && env.profile === "LIVE") {
-    await withStore((db) => {
-      const found = findRun(db, runId);
-      if (!found) return;
-      found.run.status = "FAILED";
-      found.run.error = llm.error ?? "reflection LLM failed";
-      found.run.finishedAt = realNowIso();
-      found.run.leaseOwner = null;
-    });
-    await appendEvent(runId, "RUN_FINISHED", `振り返りLLM失敗: ${llm.error ?? "unknown"}`);
-    return;
-  }
+  if (llm.coerced) await appendEvent(runId, "LLM_COERCED", "振り返りで寛容パースを最終手段として使用");
 
-  const data = llm.ok && llm.data ? llm.data : mock;
+  const emptyReflect = {
+    observations: [] as string[],
+    uncertainties: [] as string[],
+    clarification: null,
+    memoryCandidates: [] as ReflectionLlm["memoryCandidates"],
+  };
+  const data = llm.ok && llm.data ? llm.data : env.profile === "LIVE" ? emptyReflect : mock;
   const reflectionId = reflection?.id ?? newId("ref");
   const storedCandidates: MemoryCandidate[] = [];
   await withStore((db) => {
@@ -214,6 +209,7 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         careTarget: c.careTarget ?? (/疲|立/.test(c.content + masked) ? "STANDING" : /甘|カフェ/.test(c.content + masked) ? "SWEETS" : null),
         careDirection: c.careDirection ?? (/疲|立/.test(c.content + masked) ? "REDUCE" : /甘|カフェ/.test(c.content + masked) ? "PREFER" : null),
         createdAt: realNowIso(),
+        injectionFlags: detectInjection(`${c.content}\n${c.evidenceQuote}\n${masked}`).map((f) => f.code),
       };
       const checked = validateMemoryCandidate(candidate);
       if (!checked.ok) continue;
@@ -238,6 +234,7 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         careTarget: /疲|立/.test(masked) ? "STANDING" : /甘|カフェ/.test(masked) ? "SWEETS" : null,
         careDirection: /疲|立/.test(masked) ? "REDUCE" : /甘|カフェ/.test(masked) ? "PREFER" : null,
         createdAt: realNowIso(),
+        injectionFlags: detectInjection(masked).map((f) => f.code),
       };
       if (validateMemoryCandidate(candidate).ok) {
         found.couple.memoryCandidates[cid] = candidate;
@@ -245,6 +242,13 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
       }
     }
   });
+
+  const flagged = storedCandidates.filter((c) => (c.injectionFlags ?? []).length);
+  if (flagged.length) {
+    await appendEvent(runId, "INJECTION_FLAGGED", `記憶候補 ${flagged.length} 件に命令形・固定化の疑い`, {
+      payload: flagged.map((c) => ({ id: c.id, flags: c.injectionFlags })),
+    });
+  }
 
   if (data.clarification) {
     const question = {
@@ -277,7 +281,9 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         planVersionTo: found.bundle.session.currentPlanVersion ?? 0,
         kind: "MEMORY_SAVE",
         status: "PENDING",
-        summary: `記憶候補: ${candidate.content}`,
+        summary: (candidate.injectionFlags ?? []).length
+          ? `警告 ${candidate.injectionFlags?.join(",")}: ${candidate.content}`
+          : `記憶候補: ${candidate.content}`,
         diff: null,
         consumedAt: null,
         createdAt: realNowIso(),
