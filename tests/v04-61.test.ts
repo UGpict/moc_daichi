@@ -129,10 +129,14 @@ describe("reflection split (no auto convert)", () => {
 });
 
 describe("persist kinds", () => {
-  it("reports CREDENTIALS when ADC is missing rather than unimplemented", () => {
+  it("does not treat missing GAC as unimplemented; connection classifies credentials", () => {
     const prev = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     const prevRuntime = process.env.APP_RUNTIME;
+    const prevFs = process.env.FIRESTORE_EMULATOR_HOST;
+    const prevAuth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
     delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIRESTORE_EMULATOR_HOST;
+    delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
     process.env.APP_RUNTIME = "LIVE";
     const adc = inspectAdc();
     const persist = inspectPersist();
@@ -140,9 +144,11 @@ describe("persist kinds", () => {
     else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     if (prevRuntime != null) process.env.APP_RUNTIME = prevRuntime;
     else delete process.env.APP_RUNTIME;
-    assert.equal(adc.kind, "CREDENTIALS");
+    if (prevFs != null) process.env.FIRESTORE_EMULATOR_HOST = prevFs;
+    if (prevAuth != null) process.env.FIREBASE_AUTH_EMULATOR_HOST = prevAuth;
     assert.notEqual(persist.kind, "UNIMPLEMENTED");
-    const err = new PersistBlockedError("CREDENTIALS", "ADC missing");
+    assert.notEqual(adc.kind, "UNIMPLEMENTED");
+    const err = new PersistBlockedError("CREDENTIALS", "Could not load the default credentials");
     assert.equal(err.kind, "CREDENTIALS");
     assert.notEqual(err.kind, "UNIMPLEMENTED");
   });

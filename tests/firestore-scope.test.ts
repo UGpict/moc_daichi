@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, it } from "node:test";
-import { materializeAdcFromEnv, validateServiceAccountJson } from "../src/server/auth/adc";
+import { stripPlaceholderAdc } from "../src/server/auth/adc";
 import { diffDocs, type FireDoc } from "../src/server/repositories/firestore/scoped";
-import { redactPersistText } from "../src/server/repositories/persistErrors";
 import { diagnosePersistSync } from "../src/server/repositories/persistDiagnose";
+import { scoreOutcome } from "../src/domain/demo/criteria61";
 
 describe("scoped firestore writes", () => {
   it("writes only changed and new docs and deletes only loaded missing ones", () => {
@@ -37,62 +34,46 @@ describe("scoped firestore writes", () => {
   });
 });
 
-describe("ADC materialize", () => {
-  it("writes JSON secret to a 0600 temp file and does not keep the env body", () => {
-    const dir = mkdtempSync(join(tmpdir(), "futari-adc-"));
-    const dest = join(dir, "adc.json");
-    const prevPath = process.env.FUTARI_ADC_PATH;
-    const prevSecret = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    const prevGac = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    process.env.FUTARI_ADC_PATH = dest;
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON = JSON.stringify({
-      type: "service_account",
-      private_key: "-----BEGIN PRIVATE KEY-----\nMIIBTEST\n-----END PRIVATE KEY-----\n",
-      client_email: "probe@example.com",
-    });
-    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    const result = materializeAdcFromEnv();
-    assert.equal(result.ok, true);
-    assert.equal(result.source, "FIREBASE_SERVICE_ACCOUNT_JSON");
-    assert.equal(process.env.FIREBASE_SERVICE_ACCOUNT_JSON, undefined);
-    assert.equal(process.env.GOOGLE_APPLICATION_CREDENTIALS, dest);
-    const written = readFileSync(dest, "utf8");
-    assert.match(written, /service_account/);
-    const redacted = redactPersistText(written);
-    assert.doesNotMatch(redacted, /BEGIN PRIVATE KEY/);
-    if (prevPath != null) process.env.FUTARI_ADC_PATH = prevPath;
-    else delete process.env.FUTARI_ADC_PATH;
-    if (prevSecret != null) process.env.FIREBASE_SERVICE_ACCOUNT_JSON = prevSecret;
-    else delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    if (prevGac != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prevGac;
+describe("ADC is user applicationDefault, not a service account file", () => {
+  it("drops a fake GAC path", () => {
+    const prev = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = "/absolute/path/to/service-account.json";
+    const result = stripPlaceholderAdc();
+    assert.equal(result.stripped, true);
+    if (prev != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prev;
     else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    rmSync(dir, { recursive: true, force: true });
-  });
-
-  it("rejects invalid JSON without echoing the body", () => {
-    const result = validateServiceAccountJson("{not-json");
-    assert.equal(result.ok, false);
-    if (!result.ok) assert.doesNotMatch(result.reason, /not-json/);
   });
 });
 
-describe("diagnose after materialize flags", () => {
-  it("keeps placeholder ADC as CREDENTIALS and records scoped writes as implemented", () => {
+describe("emulator vs LIVE scoring", () => {
+  it("does not count emulator all-pass as LIVE 完全成功", () => {
+    const allPass = [
+      { id: "rain_auto_notify" as const, label: "x", verdict: "PASS" as const, detail: "" },
+      { id: "reflection_one_question" as const, label: "x", verdict: "PASS" as const, detail: "" },
+    ];
+    assert.equal(scoreOutcome(allPass, "emulator"), "EMULATOR成功");
+    assert.equal(scoreOutcome(allPass, "live"), "完全成功");
+    assert.equal(scoreOutcome(allPass, "json"), "部分成功");
+  });
+
+  it("records scoped writes as implemented without a service-account file", () => {
     const prev = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     const prevRuntime = process.env.APP_RUNTIME;
-    const prevSecret = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    const prevFs = process.env.FIRESTORE_EMULATOR_HOST;
+    const prevAuth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIRESTORE_EMULATOR_HOST;
+    delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
     process.env.APP_RUNTIME = "LIVE";
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = "/path/to/service-account.json";
     const d = diagnosePersistSync();
     if (prev != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prev;
     else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     if (prevRuntime != null) process.env.APP_RUNTIME = prevRuntime;
     else delete process.env.APP_RUNTIME;
-    if (prevSecret != null) process.env.FIREBASE_SERVICE_ACCOUNT_JSON = prevSecret;
-    assert.equal(d.kind, "CREDENTIALS");
+    if (prevFs != null) process.env.FIRESTORE_EMULATOR_HOST = prevFs;
+    if (prevAuth != null) process.env.FIREBASE_AUTH_EMULATOR_HOST = prevAuth;
     assert.equal(d.implemented.scopedWrites, true);
     assert.equal(d.implemented.approvalTransaction, true);
-    assert.equal(d.adc.pathIsPlaceholder, true);
+    assert.equal(d.implemented.userAdc, true);
   });
 });

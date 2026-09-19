@@ -9,11 +9,9 @@ import { commitScoped, loadScoped } from "./scoped";
 
 export type PersistInspect = Pick<PersistDiagnosis, "backend" | "kind" | "detail">;
 
-export function inspectAdc(): { kind: "ok" | "CREDENTIALS"; detail: string } {
+export function inspectAdc(): { kind: PersistDiagnosis["kind"]; detail: string } {
   const d = diagnosePersistSync();
-  if (d.kind === "ok" || d.emulator) return { kind: "ok", detail: d.detail };
-  if (d.kind === "CREDENTIALS") return { kind: "CREDENTIALS", detail: d.detail };
-  return { kind: "CREDENTIALS", detail: d.detail };
+  return { kind: d.kind, detail: d.detail };
 }
 
 export function inspectPersist(): PersistInspect {

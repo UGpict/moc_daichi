@@ -6,13 +6,10 @@ import {
   redactPersistText,
 } from "../src/server/repositories/persistErrors";
 import { diagnosePersistSync } from "../src/server/repositories/persistDiagnose";
+import { stripPlaceholderAdc } from "../src/server/auth/adc";
 
 describe("persist error classification", () => {
   it("keeps credential fetch, permission, and unconfigured apart", () => {
-    assert.equal(
-      classifyPersistFailure({ message: "ENOENT: no such file", code: "ENOENT", operation: "open ADC file" }),
-      "CREDENTIALS",
-    );
     assert.equal(
       classifyPersistFailure({ message: "Could not load the default credentials", operation: "initializeApp" }),
       "CREDENTIALS",
@@ -45,26 +42,58 @@ describe("persist error classification", () => {
   });
 });
 
-describe("persist diagnose vs leftover JSON", () => {
-  it("treats placeholder ADC as CREDENTIALS and says Firestore repo is implemented", () => {
+describe("persist diagnose without service account checks", () => {
+  it("does not require GOOGLE_APPLICATION_CREDENTIALS or type=service_account on LIVE sync", () => {
     const prev = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     const prevRuntime = process.env.APP_RUNTIME;
+    const prevEmu = process.env.FIRESTORE_EMULATOR_HOST;
+    const prevAuth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIRESTORE_EMULATOR_HOST;
+    delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
     process.env.APP_RUNTIME = "LIVE";
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = "/path/to/service-account.json";
     const d = diagnosePersistSync();
     if (prev != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prev;
     else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     if (prevRuntime != null) process.env.APP_RUNTIME = prevRuntime;
     else delete process.env.APP_RUNTIME;
-    assert.equal(d.kind, "CREDENTIALS");
-    assert.equal(d.implemented.firestoreRepo, true);
-    assert.equal(d.implemented.switchByPersistBackend, true);
-    assert.equal(d.adc.pathIsPlaceholder, true);
-    assert.equal(d.operation, "open GOOGLE_APPLICATION_CREDENTIALS");
-    assert.equal(d.currentWriteTarget, "none");
+    if (prevEmu != null) process.env.FIRESTORE_EMULATOR_HOST = prevEmu;
+    if (prevAuth != null) process.env.FIREBASE_AUTH_EMULATOR_HOST = prevAuth;
     assert.notEqual(d.kind, "UNIMPLEMENTED");
-    assert.notEqual(d.kind, "PERMISSION");
-    assert.notEqual(d.kind, "NOT_CONFIGURED");
+    assert.equal(d.implemented.userAdc, true);
+    assert.equal(d.adc.usesApplicationDefault, true);
+    assert.equal(d.kind, "ok");
+    assert.match(d.detail, /applicationDefault/);
+  });
+
+  it("strips placeholder ADC so applicationDefault can use user credentials", () => {
+    const prev = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = "/path/to/service-account.json";
+    const result = stripPlaceholderAdc();
+    assert.equal(result.stripped, true);
+    assert.equal(process.env.GOOGLE_APPLICATION_CREDENTIALS, undefined);
+    if (prev != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prev;
+    else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  });
+
+  it("refuses production when emulator hosts are set but emulator is down", () => {
+    const prevRuntime = process.env.APP_RUNTIME;
+    const prevFs = process.env.FIRESTORE_EMULATOR_HOST;
+    const prevAuth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    process.env.APP_RUNTIME = "EMULATOR";
+    process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:18080";
+    process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:19099";
+    const d = diagnosePersistSync();
+    if (prevRuntime != null) process.env.APP_RUNTIME = prevRuntime;
+    else delete process.env.APP_RUNTIME;
+    if (prevFs != null) process.env.FIRESTORE_EMULATOR_HOST = prevFs;
+    else delete process.env.FIRESTORE_EMULATOR_HOST;
+    if (prevAuth != null) process.env.FIREBASE_AUTH_EMULATOR_HOST = prevAuth;
+    else delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    assert.equal(d.kind, "CONNECT");
+    assert.equal(d.refusedProduction, true);
+    assert.equal(d.emulator, true);
+    assert.match(d.detail, /本番/);
   });
 
   it("keeps PersistBlockedError kinds distinct", () => {

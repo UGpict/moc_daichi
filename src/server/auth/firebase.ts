@@ -1,52 +1,73 @@
 import { getEnv } from "@/config/env";
-import { getApps, initializeApp, cert, applicationDefault, type App } from "firebase-admin/app";
+import { getApps, initializeApp, applicationDefault, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { materializeAdcFromEnv } from "./adc";
+import { stripPlaceholderAdc } from "./adc";
+import { applyEmulatorEnv, emulatorStatus } from "./emulatorGuard";
+import { PersistBlockedError } from "@/server/repositories/persistErrors";
 
 let app: App | null = null;
 let lastInitError: { operation: string; name: string; message: string; code: string | null } | null = null;
+let emulatorReadyChecked = false;
 
 export function lastFirebaseAdminInitError() {
   return lastInitError;
+}
+
+export function resetFirebaseAdminForTests() {
+  app = null;
+  lastInitError = null;
+  emulatorReadyChecked = false;
+}
+
+function recordInitError(operation: string, error: unknown) {
+  lastInitError = {
+    operation,
+    name: error instanceof Error ? error.name : "Error",
+    message: error instanceof Error ? error.message : String(error),
+    code: error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : null,
+  };
 }
 
 export function firebaseAdminApp(): App | null {
   const env = getEnv();
   if (getApps().length) return getApps()[0]!;
   try {
-    if (env.authEmulatorHost || env.firestoreEmulatorHost) {
-      if (env.authEmulatorHost && !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-        process.env.FIREBASE_AUTH_EMULATOR_HOST = env.authEmulatorHost;
+    if (env.profile === "EMULATOR" || env.authEmulatorHost || env.firestoreEmulatorHost) {
+      const hosts = applyEmulatorEnv();
+      if (!emulatorReadyChecked) {
+        emulatorReadyChecked = true;
       }
-      if (env.firestoreEmulatorHost && !process.env.FIRESTORE_EMULATOR_HOST) {
-        process.env.FIRESTORE_EMULATOR_HOST = env.firestoreEmulatorHost;
-      }
-      app = initializeApp({ projectId: env.firebaseProjectId ?? "futari-log-dev" });
+      app = initializeApp({ projectId: env.firebaseProjectId || "futari-log-dev" });
       lastInitError = null;
+      void hosts;
       return app;
     }
-    materializeAdcFromEnv();
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      app = initializeApp({ credential: applicationDefault(), projectId: env.firebaseProjectId ?? undefined });
-      lastInitError = null;
-      return app;
-    }
-    if (env.firebaseProjectId && env.profile !== "DEV") {
-      app = initializeApp({ credential: applicationDefault(), projectId: env.firebaseProjectId });
-      lastInitError = null;
-      return app;
-    }
+    stripPlaceholderAdc();
+    app = initializeApp({
+      credential: applicationDefault(),
+      projectId: env.firebaseProjectId ?? undefined,
+    });
+    lastInitError = null;
+    return app;
   } catch (error) {
-    lastInitError = {
-      operation: "firebase-admin initializeApp(applicationDefault)",
-      name: error instanceof Error ? error.name : "Error",
-      message: error instanceof Error ? error.message : String(error),
-      code: error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : null,
-    };
+    recordInitError("firebase-admin initializeApp(applicationDefault)", error);
     return null;
   }
-  return getApps()[0] ?? null;
+}
+
+/** Emulator 指定時は本番へ繋がない。未起動なら明示停止。 */
+export async function assertEmulatorOrThrow(): Promise<void> {
+  const env = getEnv();
+  if (env.profile !== "EMULATOR" && !env.firestoreEmulatorHost && !env.authEmulatorHost) return;
+  applyEmulatorEnv();
+  const status = await emulatorStatus();
+  if (status.ready) return;
+  throw new PersistBlockedError(
+    "CONNECT",
+    `Firebase Emulator が未起動（firestore=${status.firestore} auth=${status.auth}）。本番 Firestore へは接続しない`,
+    { operation: "probe FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST" },
+  );
 }
 
 export async function verifyFirebaseIdToken(token: string): Promise<string | null> {
@@ -66,10 +87,10 @@ async function verifyWithAdmin(token: string): Promise<string | null> {
   }
 }
 
-/** ADC が無いときでも、ウェブ API キーで ID トークンの妥当性を Firebase に確認する。mock トークンは使わない。 */
+/** LIVE で Admin が無いとき、ウェブ API キーで ID トークンを確認する。Emulator / mock トークンは使わない。 */
 async function verifyWithIdentityToolkit(token: string): Promise<string | null> {
   const env = getEnv();
-  if (!env.firebaseApiKey || env.profile === "DEV") return null;
+  if (env.profile !== "LIVE" || !env.firebaseApiKey) return null;
   try {
     const res = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(env.firebaseApiKey)}`,
@@ -93,5 +114,3 @@ export function firestoreDb() {
   if (!a) return null;
   return getFirestore(a);
 }
-
-void cert;

@@ -12,9 +12,13 @@
     "build": "next build",
     "start": "tsx scripts/start.ts",
     "doctor": "tsx scripts/doctor.ts",
+    "emu": "tsx scripts/ensure-emulator.ts",
     "persist:diagnose": "tsx scripts/persist-diagnose.ts",
+    "persist:diagnose:emu": "tsx scripts/persist-diagnose.ts --emu",
     "demo:live": "tsx scripts/live-demo.ts",
     "demo:five": "tsx scripts/live-demo.ts --five",
+    "demo:emu": "tsx scripts/live-demo.ts --emu",
+    "demo:emu:five": "tsx scripts/live-demo.ts --emu --five",
     "demo:chaos": "tsx scripts/chaos.ts",
     "demo:reset": "tsx scripts/demo-reset.ts",
     "replay:export": "tsx scripts/replay-export.ts"

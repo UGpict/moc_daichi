@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import { getEnv } from "@/config/env";
-import { lastAdcMaterialize, materializeAdcFromEnv } from "@/server/auth/adc";
+import { stripPlaceholderAdc } from "@/server/auth/adc";
+import { emulatorHosts, probePortSync } from "@/server/auth/emulatorGuard";
 import { lastFirebaseAdminInitError } from "@/server/auth/firebase";
 import {
   PersistBlockedError,
@@ -18,7 +19,7 @@ export type PersistDiagnosis = {
   errorName: string | null;
   errorCode: string | null;
   errorMessage: string | null;
-  currentWriteTarget: "json:.data/store.json" | "firestore:collections" | "none";
+  currentWriteTarget: "json:.data/store.json" | "firestore:collections" | "firestore:emulator" | "none";
   leftoverStoreJson: { exists: boolean; bytes: number | null };
   implemented: {
     jsonStore: true;
@@ -26,6 +27,8 @@ export type PersistDiagnosis = {
     switchByPersistBackend: true;
     scopedWrites: true;
     approvalTransaction: true;
+    userAdc: true;
+    emulatorGuard: true;
   };
   adc: {
     envSet: boolean;
@@ -33,21 +36,18 @@ export type PersistDiagnosis = {
     pathIsPlaceholder: boolean;
     basename: string | null;
     parentDirExists: boolean;
-    materializeSource: string | null;
-    materialized: boolean;
+    usesApplicationDefault: true;
   };
   projectIdSet: boolean;
   emulator: boolean;
+  emulatorReady: boolean | null;
+  refusedProduction: boolean;
 };
 
 function adcPath(): string | null {
   const value = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (!value || !value.trim()) return null;
   return value.trim();
-}
-
-function isPlaceholderPath(path: string): boolean {
-  return path === "/path/to/service-account.json" || path === "path/to/service-account.json" || /\/path\/to\//.test(path);
 }
 
 function leftoverStore() {
@@ -59,11 +59,38 @@ function leftoverStore() {
   }
 }
 
+const implemented = {
+  jsonStore: true,
+  firestoreRepo: true,
+  switchByPersistBackend: true,
+  scopedWrites: true,
+  approvalTransaction: true,
+  userAdc: true,
+  emulatorGuard: true,
+} as const;
+
+function adcInfo(path: string | null): PersistDiagnosis["adc"] {
+  return {
+    envSet: Boolean(path),
+    fileExists: Boolean(path && existsSync(path)),
+    pathIsPlaceholder: false,
+    basename: path ? basename(path) : null,
+    parentDirExists: Boolean(path && existsSync(dirname(path))),
+    usesApplicationDefault: true,
+  };
+}
+
 function fail(
   kind: PersistBlockKind,
   operation: string,
   detail: string,
-  error?: { name?: string; message?: string; code?: string | number | null },
+  extra: {
+    error?: { name?: string; message?: string; code?: string | number | null };
+    emulator?: boolean;
+    emulatorReady?: boolean | null;
+    refusedProduction?: boolean;
+    write?: PersistDiagnosis["currentWriteTarget"];
+  } = {},
 ): PersistDiagnosis {
   const env = getEnv();
   const path = adcPath();
@@ -72,38 +99,25 @@ function fail(
     kind,
     detail: redactPersistText(detail),
     operation,
-    errorName: error?.name ?? "PersistBlockedError",
-    errorCode: error?.code != null ? String(error.code) : null,
-    errorMessage: error?.message ? redactPersistText(error.message) : null,
-    currentWriteTarget: env.persistBackend === "json" ? "json:.data/store.json" : "none",
+    errorName: extra.error?.name ?? "PersistBlockedError",
+    errorCode: extra.error?.code != null ? String(extra.error.code) : null,
+    errorMessage: extra.error?.message ? redactPersistText(extra.error.message) : null,
+    currentWriteTarget: extra.write ?? "none",
     leftoverStoreJson: leftoverStore(),
-    implemented: {
-      jsonStore: true,
-      firestoreRepo: true,
-      switchByPersistBackend: true,
-      scopedWrites: true,
-      approvalTransaction: true,
-    },
+    implemented,
     adc: adcInfo(path),
     projectIdSet: Boolean(env.firebaseProjectId),
-    emulator: Boolean(env.firestoreEmulatorHost),
+    emulator: extra.emulator ?? Boolean(env.firestoreEmulatorHost || env.profile === "EMULATOR"),
+    emulatorReady: extra.emulatorReady ?? null,
+    refusedProduction: extra.refusedProduction ?? false,
   };
 }
 
-function adcInfo(path: string | null): PersistDiagnosis["adc"] {
-  const materialized = lastAdcMaterialize();
-  return {
-    envSet: Boolean(path),
-    fileExists: Boolean(path && existsSync(path)),
-    pathIsPlaceholder: Boolean(path && isPlaceholderPath(path)),
-    basename: path ? basename(path) : null,
-    parentDirExists: Boolean(path && existsSync(dirname(path))),
-    materializeSource: materialized?.source ?? null,
-    materialized: Boolean(materialized?.ok),
-  };
-}
-
-function ok(detail: string, write: PersistDiagnosis["currentWriteTarget"]): PersistDiagnosis {
+function ok(
+  detail: string,
+  write: PersistDiagnosis["currentWriteTarget"],
+  extra: { emulator?: boolean; emulatorReady?: boolean | null } = {},
+): PersistDiagnosis {
   const env = getEnv();
   const path = adcPath();
   return {
@@ -116,105 +130,96 @@ function ok(detail: string, write: PersistDiagnosis["currentWriteTarget"]): Pers
     errorMessage: null,
     currentWriteTarget: write,
     leftoverStoreJson: leftoverStore(),
-    implemented: {
-      jsonStore: true,
-      firestoreRepo: true,
-      switchByPersistBackend: true,
-      scopedWrites: true,
-      approvalTransaction: true,
-    },
+    implemented,
     adc: adcInfo(path),
     projectIdSet: Boolean(env.firebaseProjectId),
-    emulator: Boolean(env.firestoreEmulatorHost),
+    emulator: extra.emulator ?? Boolean(env.profile === "EMULATOR"),
+    emulatorReady: extra.emulatorReady ?? null,
+    refusedProduction: false,
   };
 }
 
-/** ファイルと環境だけ。Firestore RPC は打たない。秘密本文は読んでも返さない。 */
+function emulatorDownDiagnosis(): PersistDiagnosis {
+  const hosts = emulatorHosts();
+  const firestoreUp = probePortSync(hosts.firestore);
+  const authUp = probePortSync(hosts.auth);
+  if (firestoreUp && authUp) return ok("Firebase Emulator が応答している", "firestore:emulator", { emulator: true, emulatorReady: true });
+  return fail(
+    "CONNECT",
+    "probe FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST",
+    `Firebase Emulator 未起動（firestore=${firestoreUp} @ ${hosts.firestore}, auth=${authUp} @ ${hosts.auth}）。本番 Firestore へは接続しない`,
+    { emulator: true, emulatorReady: false, refusedProduction: true },
+  );
+}
+
+/** ファイル必須チェックはしない。Emulator 未起動だけ同期で止める。 */
 export function diagnosePersistSync(): PersistDiagnosis {
   const env = getEnv();
+  stripPlaceholderAdc();
   if (env.persistBackend === "json") {
-    return ok("DEV はローカル JSON（.data/store.json）", "json:.data/store.json");
+    return ok("DEV はローカル JSON（.data/store.json）", "json:.data/store.json", { emulator: false, emulatorReady: null });
   }
-  if (env.firestoreEmulatorHost) {
-    return ok("FIRESTORE_EMULATOR_HOST あり。実 ADC は不要", "firestore:collections");
-  }
-  materializeAdcFromEnv();
-  const path = adcPath();
-  if (!path) {
-    return fail("CREDENTIALS", "read process.env.GOOGLE_APPLICATION_CREDENTIALS", "環境変数 GOOGLE_APPLICATION_CREDENTIALS が空。認証情報の取得失敗。");
-  }
-  if (isPlaceholderPath(path)) {
-    return fail(
-      "CREDENTIALS",
-      "open GOOGLE_APPLICATION_CREDENTIALS",
-      "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。",
-      { name: "Error", message: "ENOENT: placeholder path, no such file", code: "ENOENT" },
-    );
-  }
-  if (!existsSync(path)) {
-    return fail(
-      "CREDENTIALS",
-      "fs.existsSync(GOOGLE_APPLICATION_CREDENTIALS)",
-      `ADC ファイルが存在しない（basename=${basename(path)}）。認証情報の取得失敗。`,
-      { name: "Error", message: "ENOENT: no such file", code: "ENOENT" },
-    );
-  }
-  try {
-    const raw = readFileSync(path, "utf8");
-    const parsed = JSON.parse(raw) as { type?: string; private_key?: string };
-    if (parsed.type !== "service_account") {
-      return fail("CREDENTIALS", "JSON.parse(ADC)", "ADC の type が service_account ではない。認証情報の取得失敗。");
-    }
-    if (typeof parsed.private_key !== "string" || !parsed.private_key.includes("BEGIN PRIVATE KEY")) {
-      return fail("CREDENTIALS", "JSON.parse(ADC).private_key", "ADC に PEM 形式の private_key が無い。認証情報の取得失敗。");
-    }
-    if (/PLACEHOLDER|changeme|FIXME|YOUR_/i.test(raw)) {
-      return fail("CREDENTIALS", "JSON.parse(ADC)", "ADC JSON がプレースホルダ。認証情報の取得失敗。");
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "ADC を読めない";
-    return fail("CREDENTIALS", "readFileSync(ADC)+JSON.parse", `ADC をJSONとして読めない。認証情報の取得失敗。`, {
-      name: error instanceof Error ? error.name : "Error",
-      message: redactPersistText(message),
-    });
+  if (env.profile === "EMULATOR" || env.firestoreEmulatorHost || env.authEmulatorHost) {
+    return emulatorDownDiagnosis();
   }
   if (!env.firebaseProjectId) {
     return fail("NOT_CONFIGURED", "getEnv().firebaseProjectId", "FIREBASE_PROJECT_ID が無い。Firestore 未設定。");
   }
-  const init = lastFirebaseAdminInitError();
-  if (init) {
-    const kind = classifyPersistFailure({ message: init.message, code: init.code, operation: init.operation });
-    return fail(kind, init.operation, init.message, init);
-  }
-  return ok("ADC ファイルは読める。Firestore RPC は diagnosePersist() で確認", "firestore:collections");
+  return ok(
+    "applicationDefault() で接続する。GOOGLE_APPLICATION_CREDENTIALS 必須ではない。実接続は diagnosePersist()",
+    "firestore:collections",
+    { emulator: false, emulatorReady: null },
+  );
 }
 
-/** 認証情報があるときだけ couples 1件読みで権限/未設定を切る。 */
+/** 実接続の結果から CREDENTIALS / PERMISSION / NOT_CONFIGURED を切る。 */
 export async function diagnosePersist(): Promise<PersistDiagnosis> {
   const sync = diagnosePersistSync();
-  if (sync.kind !== "ok" || sync.backend === "json") return sync;
+  if (sync.backend === "json") return sync;
+  if (sync.emulator && sync.kind !== "ok") return sync;
   try {
     const { firestoreDb } = await import("@/server/auth/firebase");
+    if (sync.emulator) {
+      const { assertEmulatorOrThrow } = await import("@/server/auth/firebase");
+      await assertEmulatorOrThrow();
+    }
     const db = firestoreDb();
     if (!db) {
       const init = lastFirebaseAdminInitError();
       if (init) {
         const kind = classifyPersistFailure({ message: init.message, code: init.code, operation: init.operation });
-        return fail(kind, init.operation, init.message, init);
+        return fail(kind, init.operation, init.message, { error: init, emulator: sync.emulator, emulatorReady: sync.emulatorReady });
       }
-      return fail("CREDENTIALS", "firebase-admin initializeApp / getFirestore", "Firebase Admin を初期化できない。認証情報の取得失敗。");
+      return fail(
+        "CREDENTIALS",
+        "firebase-admin initializeApp(applicationDefault)",
+        "applicationDefault() で Admin を初期化できない。gcloud auth application-default login を確認。",
+        { emulator: sync.emulator, emulatorReady: sync.emulatorReady },
+      );
     }
     await db.collection("couples").limit(1).get();
-    return ok("Admin Firestore で couples.limit(1) が成功", "firestore:collections");
+    return ok(
+      sync.emulator ? "Emulator で couples.limit(1) が成功" : "Admin Firestore で couples.limit(1) が成功",
+      sync.emulator ? "firestore:emulator" : "firestore:collections",
+      { emulator: sync.emulator, emulatorReady: sync.emulator ? true : null },
+    );
   } catch (error) {
+    if (error instanceof PersistBlockedError) {
+      return fail(error.kind, error.operation ?? "persist", error.message, {
+        error: { name: error.name, message: error.message, code: error.errorCode },
+        emulator: sync.emulator,
+        emulatorReady: sync.emulatorReady,
+        refusedProduction: error.kind === "CONNECT" && Boolean(sync.emulator),
+      });
+    }
     const message = error instanceof Error ? error.message : String(error);
     const code =
       error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : null;
     const kind = classifyPersistFailure({ message, code, operation: "firestore.collection('couples').limit(1).get" });
     return fail(kind, "firestore.collection('couples').limit(1).get", message, {
-      name: error instanceof Error ? error.name : "Error",
-      message,
-      code,
+      error: { name: error instanceof Error ? error.name : "Error", message, code },
+      emulator: sync.emulator,
+      emulatorReady: sync.emulatorReady,
     });
   }
 }
