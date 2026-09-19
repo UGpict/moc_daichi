@@ -1,10 +1,12 @@
 import type { Spot, Evidence } from "@/domain/schemas";
 import { realNowIso } from "@/lib/time";
 
-export type CatalogSpot = Spot & {
+export type CatalogSpot = Omit<Spot, "photoName" | "photoAttribution"> & {
   types: string[];
   hours: { days: number[]; open: string; close: string }[];
   walkRestHint: string | null;
+  photoName?: string | null;
+  photoAttribution?: string | null;
 };
 
 function ev(id: string, field: string, note: string): Evidence {
@@ -178,11 +180,18 @@ export function searchCatalog(category: string): CatalogSpot[] {
     if (key.includes("walk") || key.includes("park") || key.includes("散歩")) {
       return s.categories.includes("park") || s.environment.value === "OUTDOOR";
     }
-    if (key.includes("museum") || key.includes("art") || key.includes("展示")) {
+    if (key.includes("museum") || key.includes("art") || key.includes("展示") || key.includes("展覧")) {
       return s.categories.includes("museum") || s.categories.includes("art_gallery");
     }
     if (key.includes("cafe") || key.includes("sweet") || key.includes("甘い")) {
       return s.categories.includes("cafe") || s.categories.includes("bakery");
+    }
+    if (key.includes("催") || key.includes("イベント") || key.includes("event")) {
+      return (
+        s.categories.includes("tourist_attraction") ||
+        s.categories.includes("museum") ||
+        s.categories.includes("art_gallery")
+      );
     }
     return blob.includes(key);
   });

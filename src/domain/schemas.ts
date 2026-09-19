@@ -66,6 +66,8 @@ export const spotSchema = z.object({
   restEase: factSchema(restEaseSchema),
   standingBurden: factSchema(standingBurdenSchema),
   officialUrl: z.string().nullable(),
+  photoName: z.string().nullable().default(null),
+  photoAttribution: z.string().nullable().default(null),
 });
 export type Spot = z.infer<typeof spotSchema>;
 
@@ -238,6 +240,7 @@ export const planningInputSchema = z.object({
   areaLat: z.number(),
   areaLng: z.number(),
   radiusMeters: z.number().default(2500),
+  pickedSpotIds: z.array(z.string()).default([]),
 });
 export type PlanningInput = z.infer<typeof planningInputSchema>;
 
@@ -513,6 +516,30 @@ export const publicPlanDtoSchema = z.object({
   ),
 });
 export type PublicPlanDTO = z.infer<typeof publicPlanDtoSchema>;
+
+export const digestItemSchema = z.object({
+  spotId: z.string(),
+  vibe: z.string(),
+  kind: z.enum(["HAPPENING", "PLACE"]),
+  query: z.string(),
+  why: z.string(),
+});
+export type DigestItem = z.infer<typeof digestItemSchema>;
+
+export const dailyDigestSchema = z.object({
+  id: z.string(),
+  tokyoDate: z.string(),
+  areaName: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  fetchedAt: z.string(),
+  status: z.enum(["FETCHING", "READY", "FAILED"]),
+  note: z.string(),
+  items: z.array(digestItemSchema),
+  spots: z.record(z.string(), spotSchema),
+  format: z.number().default(1),
+});
+export type DailyDigest = z.infer<typeof dailyDigestSchema>;
 
 export const reflectionSchema = z.object({
   id: z.string(),

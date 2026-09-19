@@ -4,6 +4,7 @@ import type {
   Approval,
   AppEvent,
   Couple,
+  DailyDigest,
   Evidence,
   Memory,
   MemoryCandidate,
@@ -50,13 +51,14 @@ export type Db = {
   couples: Record<string, CoupleBundle>;
   idempotency: Record<string, IdempotencyRecord>;
   tokens: Record<string, { uid: string; createdAt: string }>;
+  digests: Record<string, DailyDigest>;
 };
 
 const STORE_PATH = join(process.cwd(), ".data", "store.json");
 const LOCK_PATH = join(process.cwd(), ".data", "store.lock");
 
 function emptyDb(): Db {
-  return { couples: {}, idempotency: {}, tokens: {} };
+  return { couples: {}, idempotency: {}, tokens: {}, digests: {} };
 }
 
 function sleep(ms: number) {
@@ -96,7 +98,9 @@ function releaseLock(fd: number) {
 function readDb(): Db {
   if (!existsSync(STORE_PATH)) return emptyDb();
   try {
-    return JSON.parse(readFileSync(STORE_PATH, "utf8")) as Db;
+    const db = JSON.parse(readFileSync(STORE_PATH, "utf8")) as Db;
+    db.digests ??= {};
+    return db;
   } catch {
     return emptyDb();
   }

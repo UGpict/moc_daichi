@@ -582,6 +582,33 @@ export async function listMemory(uid: string, coupleId: string) {
   });
 }
 
+export async function listSessions(uid: string, coupleId: string) {
+  return withStore((db) => {
+    const couple = db.couples[coupleId];
+    if (!couple) return { ok: false as const, status: 404, error: "not found" };
+    if (couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
+    const sessions = Object.values(couple.sessions)
+      .map((bundle) => {
+        const plan = bundle.session.currentPlanVersion
+          ? bundle.planHistory[String(bundle.session.currentPlanVersion)]
+          : null;
+        return {
+          id: bundle.session.id,
+          status: bundle.session.status,
+          dateTokyo: bundle.session.input.dateTokyo,
+          areaName: bundle.session.input.areaName,
+          meetName: bundle.session.input.meet.name,
+          spotNames: (plan?.items ?? []).map((it) => bundle.spots[it.spotId]?.name ?? it.spotId),
+          validationState: plan?.validation.state ?? null,
+          costKnown: plan?.costEstimate.totalJpy.value != null,
+          createdAt: bundle.session.createdAt,
+        };
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return { ok: true as const, sessions };
+  });
+}
+
 export async function ownerCoupleId(uid: string): Promise<string | null> {
   return withStore((db) => {
     const hit = Object.values(db.couples).find((c) => c.couple.ownerUid === uid);

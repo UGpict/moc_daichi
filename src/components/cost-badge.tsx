@@ -20,9 +20,12 @@ export function CostBadge(props: {
       ? `集計可能分・未計上${props.unaccounted}回`
       : `¥${total}・高性能${props.hard}回／安価${props.mundane}回`;
   return (
-    <div className="fixed right-4 bottom-4 z-40 rounded-full border border-line bg-card px-4 py-2 text-sm shadow-md">
+    <div
+      className="pointer-events-none max-w-xs rounded-2xl border border-line bg-card/95 px-3 py-1.5 text-sm shadow-md"
+      style={{ position: "fixed", right: 12, bottom: 84, zIndex: 20 }}
+    >
       <div className="text-[11px] text-ink-soft">{label}</div>
-      <div className="font-medium">{amount}</div>
+      <div className="font-medium leading-tight">{amount}</div>
       <div className="text-[10px] text-ink-soft">
         換算 {FX.usdJpy}円/USD（{FX.asOf}）
       </div>

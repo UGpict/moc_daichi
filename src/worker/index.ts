@@ -1,6 +1,7 @@
 import { WORKER, LIMITS } from "@/config/settings";
 import { claimPendingRun, heartbeat } from "@/server/agent/lease";
 import { executeRun } from "@/server/agent/execute";
+import { maybeRefreshDailyDigest } from "@/server/providers/dailyDigest";
 
 const inflight = new Set<string>();
 
@@ -24,9 +25,14 @@ async function loop() {
 }
 
 export function startWorker() {
+  void maybeRefreshDailyDigest().catch((e) => console.error("daily digest", e));
+  void loop();
   setInterval(() => {
     void loop();
   }, WORKER.pollMs);
+  setInterval(() => {
+    void maybeRefreshDailyDigest().catch((e) => console.error("daily digest", e));
+  }, 60_000);
 }
 
 if (process.argv[1]?.includes("worker")) {

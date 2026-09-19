@@ -32,6 +32,7 @@ const input: PlanningInput = {
   areaLat: 35.17,
   areaLng: 136.88,
   radiusMeters: 2500,
+  pickedSpotIds: [],
 };
 
 const spots: Record<string, Spot> = {
@@ -46,6 +47,8 @@ const spots: Record<string, Spot> = {
     restEase: fact("EASY"),
     standingBurden: fact("LOW"),
     officialUrl: "https://example.invalid/cafe",
+    photoName: null,
+    photoAttribution: null,
   },
   park: {
     id: "park",
@@ -58,6 +61,8 @@ const spots: Record<string, Spot> = {
     restEase: fact("LIMITED"),
     standingBurden: fact("HIGH"),
     officialUrl: null,
+    photoName: null,
+    photoAttribution: null,
   },
 };
 
