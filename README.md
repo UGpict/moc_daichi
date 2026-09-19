@@ -2,7 +2,7 @@
 
 二人の希望を調整し、予定が崩れたら組み直し、確かめた記憶を次のデートに活かす Web アプリです。計画する側の1人だけが使います。相手用アカウントはありません。
 
-このリポジトリの既定実行は **DEV（JSON ストア + 開発用トークン）** です。`APP_RUNTIME=LIVE` のときキーが無ければ BLOCKED であり、モックへ自動降格しません。LIVE 合格判定にはモックを使いません。
+このリポジトリの既定実行は **DEV（JSON ストア + 開発用トークン）** です。`APP_RUNTIME=LIVE` のときキーが無ければ BLOCKED であり、モックへ自動降格しません。LIVE 合格判定にはモックを使いません。推論は [OrcaRouter](https://docs.orcarouter.ai/getting-started/quickstart) 必須です。
 
 ## 起動
 
@@ -14,42 +14,73 @@ npm run dev                  # Next.js と worker を同時起動
 
 http://localhost:3000
 
-- Web: `next dev`
-- worker: PENDING の run を lease して処理
-
 ```bash
 npm run typecheck
 npm run lint
 npm test
 npm run build
 npm run doctor          # PASS / FAIL / BLOCKED。秘密は出さない
-npm run demo:live       # DEV 通し 1 回（LIVE 合格ではない）
-npm run demo:five       # 同一版で 5 回。失敗で停止
+npm run demo:live       # 通し 1 回（LIVE 合格は APP_RUNTIME=LIVE のときだけ）
+npm run demo:five       # 同一版で 5 回。失敗で停止。再計画込みで可
+npm run demo:chaos      # 空入力・矛盾希望・閉店・400/429/timeout・過去出発
 npm run demo:reset      # 自分の isDemo データだけ。REPLAY は既定で残す
-npm run replay:export -- <runId>
 ```
+
+画面収録の固定入力は `docs/demo-script.md`。
+
+## 構成
+
+```mermaid
+flowchart LR
+  subgraph web [Next.js]
+    UI[画面]
+    API[Route Handlers]
+  end
+  subgraph worker [worker]
+    Orch[計画オーケストレータ]
+    Repair[FAIL 再計画 最大3]
+    Reflect[振り返り]
+  end
+  subgraph llm [OrcaRouter]
+    Mundane["mundane gpt-4o-mini"]
+    Hard["hard gpt-4o"]
+  end
+  subgraph data [データ]
+    JSON[(JSON ストア)]
+    Places[Places / Routes]
+  end
+  UI --> API --> JSON
+  API --> Orch
+  Orch --> Repair
+  Orch --> Mundane
+  Orch --> Hard
+  Reflect --> Mundane
+  Orch --> Places
+```
+
+- Web は入力と承認だけ。PENDING の run は worker が lease して実行する
+- 構造化抽出は mundane、最終行程・スキーマ失敗・大きな入力は hard
+- Named Router `orcarouter/futari-*` は `/v1/models` に無ければ使わない（名前は捏造しない）
+
+## 評価軸との対応
+
+| 軸 | 対応箇所 |
+|---|---|
+| セキュリティ | プロンプト区切り（`promptFence`）、記憶インジェクション警告、AUTO_NOTIFY 許可リスト、ログマスク。テストは `tests/v08.test.ts` |
+| コスパ | mundane/hard 明示ルール、呼び出しトレース（モデル・理由・トークン・費用・レイテンシ）、セッション JSON の合計一致 |
+| 信頼性 | FAIL を成功に書き換えない。自動再計画は上限 3。LIVE はモックへ落とさない |
+| 自律性 | 修復戦略の選択、スキーマ再試行→エスカレート、429/timeout の 1 回再試行。尽きれば人間へ返す |
+| 独創性 | 承認した記憶が次の計画を変える。判断トレースで差分を見せる |
 
 ## デモの操作順
 
-1. `/` でゲスト開始（Firebase 設定時は匿名ログイン、Google は利用可能なら追加）
-2. `/today` で今日の候補カードを 3〜4 件選ぶか、「候補なしで条件だけ入れる」
-3. `/plan/new` で集合地点を検索確定し、二人の希望・固定予定・自動変更を確認して作成
-4. 行程を確認。雨・遅延・満席はシナリオ注入（デモ UID のみ）
-5. 振り返り原文 → 確認質問 → 記憶候補を ID 付きで承認
-6. 「この記憶を使って次のプランをつくる」
-
-## Firebase Emulator
-
-```bash
-firebase emulators:start --only auth,firestore
-# FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
-# FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
-# APP_RUNTIME=EMULATOR
-```
-
-ルール: `firestore.rules`。クライアントは所有データの読取のみ。書き込みは Admin API。実プロジェクト接続成功を Emulator 成功としない。
-
-デプロイ手順（公開はしない）: `npm run build` のあと Web と worker を同じ環境で起動。Firebase ルールは `firebase deploy --only firestore:rules`（このリポジトリからは公開しない）。
+1. `/` でゲスト開始（Firebase 設定時は匿名ログイン）
+2. `/today` で今日の候補カードを選ぶか、「候補なしで条件だけ入れる」
+3. `/plan/new` で集合地点（名古屋駅 / 東京駅）を選び、二人の希望を入れて作成
+4. 行程を確認。右（または「判断トレース」）でモデル理由・費用・再計画差分
+5. 雨・遅延・満席はシナリオ注入（デモ UID のみ）
+6. 振り返り原文 → 確認質問 → 記憶候補を承認（命令形は警告）
+7. 「この記憶を使って次のプランをつくる」
 
 ## 環境変数
 
@@ -58,13 +89,18 @@ firebase emulators:start --only auth,firestore
 | 変数 | 用途 |
 |---|---|
 | `APP_RUNTIME` | `MOCK`/`DEV`（既定）または `LIVE` / Emulator |
-| `ORCAROUTER_*` | [OrcaRouter](https://docs.orcarouter.ai/getting-started/quickstart) 実推論 |
+| `ORCAROUTER_*` | 実推論。Named Router が無いときはカタログ ID |
 | `GOOGLE_MAPS_API_KEY` | Places New / Routes |
 | Firebase `NEXT_PUBLIC_*` / ADC | 匿名 Auth と Firestore。未設定時は DEV トークン |
 | `ENABLE_DEMO_CONTROLS` | シナリオ注入。LIVE では `DEMO_ALLOWED_UIDS` に限定 |
+| `NOTIFY_ALLOWLIST` | AUTO_NOTIFY 送信先。既定 `in-app` |
 
-## 画面
+## 既知の BLOCKED
 
-下部ナビは **今日 / プラン / ふたりのメモ**。PC では行程と判断トレースを併置します。
+- 東京の**発表会場**住所・最寄り駅は未提供。デモは名古屋駅 / 東京駅周辺を設定切替
+- OrcaRouter Named Router `orcarouter/futari-*` は API から作成できず `/v1/models` にも無い
+- Firestore Admin（実 ADC）未接続時は JSON ストア。Emulator 成功を LIVE 成功としない
+- LIVE の AUTO_NOTIFY は行程が PASS のときだけ。営業時間・料金 UNKNOWN の CONDITIONAL は自動適用しない
+- コード・README に `sougi` 名称は残っていない。外部ダッシュボード側の旧名は利用者側の設定
 
-進捗と制約は `docs/implementation-status.md`、公式仕様確認は `docs/provider-verification.md`、LIVE 実測は `docs/live-results.md`。
+進捗は `docs/implementation-status.md`、公式仕様確認は `docs/provider-verification.md`、LIVE 実測は `docs/live-results.md`。
