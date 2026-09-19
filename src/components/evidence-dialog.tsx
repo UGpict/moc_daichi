@@ -18,6 +18,7 @@ import {
   STAFF_COMPLETED_BODY,
   STAFF_WILL_HANDLE_BODY,
 } from "@/lib/sample-data";
+import { canViewEvidence } from "@/lib/events";
 import type { DemoState, EvidenceId } from "@/lib/types";
 
 const titles: Record<EvidenceId, string> = {
@@ -116,18 +117,26 @@ export function EvidenceBody({
 
 export function EvidenceButton({
   id,
+  state,
   onOpen,
+  label,
 }: {
   id: EvidenceId;
+  state: DemoState;
   onOpen: (id: EvidenceId) => void;
+  label?: string;
 }) {
+  if (!canViewEvidence(state, id)) {
+    return null;
+  }
+
   return (
     <button
       type="button"
       onClick={() => onOpen(id)}
-      className="inline-flex min-h-11 items-center text-sm font-medium text-forest underline-offset-2 hover:underline"
+      className="inline-flex min-h-11 items-center text-base font-medium text-forest underline-offset-2 hover:underline"
     >
-      {titles[id]}を開く
+      {label ?? `${titles[id]}を見る`}
     </button>
   );
 }
@@ -141,7 +150,7 @@ export function EvidenceDialog({
   state: DemoState;
   onClose: () => void;
 }) {
-  if (!id) {
+  if (!id || !canViewEvidence(state, id)) {
     return null;
   }
 

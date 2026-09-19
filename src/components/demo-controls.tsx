@@ -7,9 +7,11 @@ import type { DemoEventId } from "@/lib/types";
 const TRIGGERS: { id: DemoEventId; label: string }[] = [
   { id: "receive_first_reply", label: "見積の初回返信" },
   { id: "receive_followup_reply", label: "搬送条件の返信" },
-  { id: "receive_family_domicile", label: "家族の本籍確認の返事" },
   { id: "receive_schedule_offer", label: "火葬日程の変更案" },
+  { id: "receive_domicile_consult_reply", label: "本籍確認の相談返事" },
+  { id: "receive_domicile_recorded", label: "本籍の反映報告" },
   { id: "receive_schedule_confirm", label: "葬儀社の確定報告" },
+  { id: "receive_forms_submitted", label: "担当者の提出報告" },
   { id: "receive_municipality_inquiry", label: "自治体の不備照会" },
   { id: "receive_staff_will_handle", label: "「対応します」返信" },
   { id: "receive_staff_completed", label: "担当者の完了報告" },
@@ -29,7 +31,7 @@ export function DemoControls() {
       </summary>
       <div className="space-y-3 px-4 pb-4">
         <p className="text-sm text-ink-soft">
-          固定シナリオの体験版／外部送信なし。自動再生は、承認が必要なところで止まります。
+          自動進行は演出です。実際の通信やAI処理ではありません。承認や家族の判断は自動では行いません。
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           {state.autoPlay ? (
@@ -38,7 +40,7 @@ export function DemoControls() {
               onClick={stopAutoPlay}
               className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-forest px-3 text-base font-medium text-white"
             >
-              自動再生を停止
+              自動進行を停止
             </button>
           ) : (
             <button
@@ -46,7 +48,7 @@ export function DemoControls() {
               onClick={startAutoPlay}
               className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-forest px-3 text-base font-medium text-white"
             >
-              デモを自動再生
+              デモを自動進行
             </button>
           )}
         </div>

@@ -26,6 +26,7 @@ export const SCHEDULE_STATUSES = [
   "not_started",
   "adjusting",
   "awaiting_adjust_approval",
+  "paused_for_family",
   "awaiting_confirm",
   "confirmed",
 ] as const;
@@ -37,6 +38,8 @@ export const FORM_STATUSES = [
   "drafted",
   "mismatch",
   "updated",
+  "ready",
+  "submit_requested",
   "submitted",
 ] as const;
 
@@ -44,8 +47,13 @@ export type FormStatus = (typeof FORM_STATUSES)[number];
 
 export const DOMICILE_STATUSES = [
   "unknown",
-  "ask_family",
-  "family_will_attach",
+  "reviewing_sample",
+  "sample_provided",
+  "consulting",
+  "consulting_sent",
+  "consult_replied",
+  "consult_acknowledged",
+  "staff_recorded",
 ] as const;
 
 export type DomicileStatus = (typeof DOMICILE_STATUSES)[number];
@@ -67,9 +75,11 @@ export type EvidenceId =
 export const DEMO_EVENT_IDS = [
   "receive_first_reply",
   "receive_followup_reply",
-  "receive_family_domicile",
   "receive_schedule_offer",
   "receive_schedule_confirm",
+  "receive_domicile_consult_reply",
+  "receive_domicile_recorded",
+  "receive_forms_submitted",
   "receive_municipality_inquiry",
   "receive_staff_will_handle",
   "receive_staff_completed",
@@ -84,7 +94,14 @@ export type DemoEventId = (typeof DEMO_EVENT_IDS)[number];
 export const USER_ACTION_IDS = [
   "approve_inquiry",
   "approve_followup",
+  "choose_domicile_has_docs",
+  "choose_domicile_unknown",
+  "provide_domicile_sample",
+  "approve_domicile_consult",
+  "acknowledge_domicile_consult",
   "approve_schedule_adjust",
+  "pause_schedule_for_family",
+  "resume_schedule_decision",
   "approve_submit",
   "approve_municipality_check",
 ] as const;
@@ -113,7 +130,7 @@ export interface CaseInquiry {
 }
 
 export interface DemoState {
-  version: 2;
+  version: 3;
   track: DemoTrack;
   inquiryStatus: InquiryStatus;
   conditions: CostConditions;

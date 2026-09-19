@@ -96,7 +96,7 @@ export const EMPTY_PERMIT: PermitFlags = {
 };
 
 export const DEFAULT_DEMO_STATE: DemoState = {
-  version: 2,
+  version: 3,
   track: "prep",
   inquiryStatus: "awaiting_approval",
   conditions: DEFAULT_CONDITIONS,
@@ -220,8 +220,23 @@ export const PERMIT_ISSUED_BODY = "火葬許可証を交付しました。";
 export const PERMIT_RECEIVED_BODY = "火葬許可証を受領しました。";
 export const PERMIT_HANDOVER_BODY = "火葬場へ火葬許可証を引き渡しました。";
 
-export const FAMILY_DOMICILE_REPLY =
-  "本籍は戸籍で確認します。申請書の本籍欄は、謄本が届いてから追記します。";
+export const DOMICILE_SAMPLE_NOTE = {
+  title: "春子さんが残したメモ（架空）",
+  domicile: "静岡県葵市さくら町1丁目（架空の本籍）",
+  note: "体験用の記載です。実在の住所ではありません。",
+};
+
+export const DOMICILE_CONSULT_BODY = [
+  "お世話になっております。",
+  "死亡届の本籍欄について、手元で確認できる資料が見当たりません。",
+  "確認の進め方を相談させてください。申請書の本籍欄は、確認できるまで空欄のままにしてください。",
+].join("\n");
+
+export const DOMICILE_CONSULT_REPLY =
+  "承知しました。確認の進め方をこちらでも整理します。分かる資料が出てきたら共有ください。申請書の本籍欄は、確認できるまで空欄のままにします。";
+
+export const DOMICILE_RECORDED_BODY =
+  "確認できた本籍を、申請書案へ反映しました。";
 
 export const PERMIT_CARD = {
   title: "火葬許可証（デモ・無効）",

@@ -36,7 +36,7 @@ export function createProcedureStartState(
     hasReviewedEstimate: true,
     hasViewedFamily: true,
     deathCertificate: "received",
-    domicileStatus: "ask_family",
+    domicileStatus: "unknown",
     scheduleStatus: "adjusting",
     originalCremationDate: CREMATION_FIRST_DATE,
     proposedCremationDate: CREMATION_FIRST_DATE,
@@ -68,22 +68,60 @@ export function isCaseInquiryResolved(state: DemoState): boolean {
   );
 }
 
+export function isDomicileConfirmed(state: DemoState): boolean {
+  return state.domicileStatus === "staff_recorded";
+}
+
 export function canSubmitForms(state: DemoState): boolean {
   return (
     state.track === "procedure" &&
     state.scheduleStatus === "confirmed" &&
-    state.formStatus === "updated" &&
-    state.domicileStatus === "family_will_attach" &&
+    state.formStatus === "ready" &&
+    isDomicileConfirmed(state) &&
     !state.caseInquiry.received
   );
+}
+
+export function refreshFormStatus(state: DemoState): DemoState {
+  if (
+    state.formStatus === "submit_requested" ||
+    state.formStatus === "submitted"
+  ) {
+    return state;
+  }
+
+  if (hasFormDateMismatch(state)) {
+    return state.formStatus === "mismatch" ? state : { ...state, formStatus: "mismatch" };
+  }
+
+  if (state.scheduleStatus === "confirmed" && isDomicileConfirmed(state)) {
+    return state.formStatus === "ready" ? state : { ...state, formStatus: "ready" };
+  }
+
+  if (state.scheduleStatus === "confirmed") {
+    return state.formStatus === "updated" ? state : { ...state, formStatus: "updated" };
+  }
+
+  return state;
 }
 
 export function referenceTotal(state: DemoState): number {
   return calculateReferenceCost(state.conditions).total;
 }
 
+export function previousStayReferenceTotal(state: DemoState): number {
+  return calculateReferenceCost({
+    ...state.conditions,
+    stayDays: originalStayDaysForOffer(),
+  }).total;
+}
+
 export function scheduleStayDaysAfterOffer(): 5 {
   return 5;
+}
+
+export function originalStayDaysForOffer(): 4 {
+  return 4;
 }
 
 export const NEXT_DAY_TOTAL = 710_500;

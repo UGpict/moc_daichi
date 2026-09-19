@@ -25,7 +25,7 @@ import {
   TRANSPORT_KM_OPTIONS,
 } from "./types";
 
-export const STORAGE_KEY = "sougi-agent-demo-v2";
+export const STORAGE_KEY = "sougi-agent-demo-v3";
 
 function includes<T extends string>(list: readonly T[], value: unknown): value is T {
   return typeof value === "string" && (list as readonly string[]).includes(value);
@@ -73,7 +73,7 @@ export function parseDemoState(value: unknown): DemoState | null {
   }
 
   const raw = value as Partial<DemoState>;
-  if (raw.version !== 2 || !includes(INQUIRY_STATUSES, raw.inquiryStatus)) {
+  if (raw.version !== 3 || !includes(INQUIRY_STATUSES, raw.inquiryStatus)) {
     return null;
   }
 
@@ -104,7 +104,7 @@ export function parseDemoState(value: unknown): DemoState | null {
     : DEFAULT_DEMO_STATE.deathCertificate;
 
   return {
-    version: 2,
+    version: 3,
     track,
     inquiryStatus: raw.inquiryStatus as InquiryStatus,
     conditions: {
