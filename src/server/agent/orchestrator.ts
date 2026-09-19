@@ -7,8 +7,9 @@ import { preferenceMatchIds } from "@/domain/plan/validatePlan";
 import { newId } from "@/lib/ids";
 import { realNowIso } from "@/lib/time";
 import { callLLM } from "@/server/llm";
-import { planProposalSchema } from "@/server/llm/taskSchemas";
-import { getSpotDetails, getWeather, searchSpots, type ProviderCtx } from "@/server/providers";
+import { agentActionCoerceSchema, agentActionLlmSchema, repairHintFor } from "@/server/llm/taskSchemas";
+import { checkOpen, estimateTravel, getSpotDetails, getWeather, searchSpots, type ProviderCtx } from "@/server/providers";
+import { validatePlan } from "@/domain/plan/validatePlan";
 import { getCatalogSpot } from "@/server/providers/catalog";
 import { readTodayDigest } from "@/server/providers/dailyDigest";
 import { ensureSpotFacts } from "@/server/providers/ensureSpotFacts";
@@ -152,15 +153,97 @@ async function runTool(
       for (const s of r.spots) spots[s.id] = s;
       return { ids: r.spots.slice(0, 5).map((s) => s.id) };
     }
-    case "check_opening":
-    case "estimate_travel":
-    case "validate_plan":
+    case "check_opening": {
+      const opening = await checkOpen(ctx, {
+        spotId: call.args.spotId,
+        startAt: call.args.startAt,
+        endAt: call.args.endAt,
+      });
+      return { spotId: opening.spotId, state: opening.state };
+    }
+    case "estimate_travel": {
+      const from = call.args.fromSpotId ? spots[call.args.fromSpotId] : null;
+      const to = call.args.toSpotId ? spots[call.args.toSpotId] : null;
+      if (!from || !to) return { error: "spot missing", from: call.args.fromSpotId, to: call.args.toSpotId };
+      const travel = await estimateTravel(ctx, {
+        from: { lat: from.lat, lng: from.lng, spotId: from.id },
+        to: { lat: to.lat, lng: to.lng, spotId: to.id },
+        mode: call.args.mode,
+        departureAt: call.args.departureAt,
+      });
+      return {
+        durationMinutes: travel.durationMinutes,
+        distanceMeters: travel.distanceMeters,
+        delayMinutes: travel.delayMinutes,
+      };
+    }
+    case "validate_plan": {
+      return { orderedSpotIds: call.args.orderedSpotIds, note: "deterministic validate runs after propose" };
+    }
     case "compute_diff":
+      return { fromVersion: call.args.fromVersion, toVersion: call.args.toVersion };
     case "ask_clarification":
-      return { deferred: call.name };
+      return { ask: true, prompt: call.args.prompt, options: call.args.options };
     default:
       return { error: "unknown tool" };
   }
+}
+
+function defaultToolCalls(
+  names: string[],
+  sessionInput: {
+    areaLat: number;
+    areaLng: number;
+    dateTokyo: string;
+    startTime: string;
+    travelMode: "WALK" | "TRANSIT" | "DRIVE";
+  },
+  rain: boolean,
+  orderedSpotIds: string[],
+): AllowedToolCall[] {
+  const at = `${sessionInput.dateTokyo}T${sessionInput.startTime}:00+09:00`;
+  const parsed: AllowedToolCall[] = [];
+  for (const name of names.slice(0, 4)) {
+    const checked = allowedToolCallSchema.safeParse((() => {
+      switch (name) {
+        case "search_spots":
+          return { name, args: { category: rain ? "屋内" : "散歩" } };
+        case "get_spot_details":
+          return { name, args: { spotId: orderedSpotIds[0] ?? "unknown" } };
+        case "get_weather":
+          return { name, args: { lat: sessionInput.areaLat, lng: sessionInput.areaLng, at } };
+        case "read_memories":
+          return { name, args: {} };
+        case "propose_candidates":
+          return { name, args: { query: rain ? "屋内" : "散歩", indoorOnly: rain } };
+        case "check_opening":
+          return {
+            name,
+            args: { spotId: orderedSpotIds[0] ?? "unknown", startAt: at, endAt: at },
+          };
+        case "estimate_travel":
+          return {
+            name,
+            args: {
+              fromSpotId: orderedSpotIds[0] ?? null,
+              toSpotId: orderedSpotIds[1] ?? null,
+              mode: sessionInput.travelMode,
+              departureAt: at,
+            },
+          };
+        case "validate_plan":
+          return { name, args: { orderedSpotIds } };
+        case "compute_diff":
+          return { name, args: { fromVersion: 1, toVersion: 2 } };
+        case "ask_clarification":
+          return { name, args: { prompt: "どの条件を優先しますか？", options: ["屋内", "短い移動", "分からない"] } };
+        default:
+          return null;
+      }
+    })());
+    if (checked.success) parsed.push(checked.data);
+  }
+  return parsed;
 }
 
 export async function runPlanningOrchestrator(runId: string, signal: AbortSignal): Promise<void> {
@@ -289,6 +372,7 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
   let sourceIds: string[] = [];
   let llmRejected: { spotId: string; reason: string }[] = [];
   let lastValidation: string | null = null;
+  const toolResults: unknown[] = [];
 
   if (useManual) {
     sourceIds = [...new Set([...lockedIds, ...mustVisit, ...picked, ...selectedSpots.map((s) => s.spotId)])].slice(0, 4);
@@ -302,17 +386,29 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
       cost: s.costForTwoJpy.value,
     });
     const toolBudget = { steps: 0, http: ctx.httpAttempts };
+    let decided = false;
     while (toolBudget.steps < LIMITS.maxDecisionSteps && ctx.httpAttempts < LIMITS.maxExternalHttpAttempts && !signal.aborted) {
       toolBudget.steps += 1;
+      const mockDecision = {
+        type: "PROPOSE_PLAN" as const,
+        reason: lastValidation ? `前回検証 ${lastValidation} を見て提案` : "検索済み候補から提案",
+        toolNames: [] as string[],
+        orderedSpotIds: mockAction.selected,
+        rejected: mockAction.rejected,
+        assumptions: ["空席は確認していない"],
+        questionPrompt: null as string | null,
+        questionOptions: [] as string[],
+        missingFields: [] as string[],
+        lastValidationSeen: lastValidation,
+      };
       const llm = await callLLM({
-        task: "final_plan",
-        schemaName: "planProposal",
-        repairHint:
-          "直前のJSONはスキーマ不一致。orderedSpotIds（既知候補のidのみ）、rejected、assumptions、tradeoffs を返す。",
+        task: "agent_action",
+        schemaName: "agentDecision",
+        repairHint: repairHintFor("agentDecision"),
         messages: [
           {
             role: "system",
-            content: `${systemFence("final_plan")} 候補配列の id だけを orderedSpotIds に使う。未知IDを採用しない。3〜4件。lockedIds と MUST_VISIT は必ず含める。記憶保存とプラン適用はしない。通知先は出力しない。`,
+            content: `${systemFence("agent_action")} ツール結果と lastValidation を次の type に使う。CALL_TOOLS / PROPOSE_PLAN / ASK_USER / STOP。候補 id だけを orderedSpotIds に使う。3〜4件。lockedIds と MUST_VISIT は必ず含める。記憶保存とプラン適用はしない。検証と適用の最終判定は決定的ゲートが行う。`,
           },
           {
             role: "user",
@@ -324,6 +420,9 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
               rain,
               precipitationMm: weather.precipitationMm,
               lastValidation,
+              step: toolBudget.steps,
+              maxSteps: LIMITS.maxDecisionSteps,
+              toolResults,
               memories: memories.map((m) => ({
                 id: m.id,
                 content: m.content,
@@ -339,15 +438,12 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
             }),
           },
         ],
-        schema: planProposalSchema,
+        schema: agentActionLlmSchema,
+        strictSchema: agentActionLlmSchema,
+        coerceSchema: agentActionCoerceSchema,
         runId,
         signal,
-        mockValue: {
-          orderedSpotIds: mockAction.selected,
-          rejected: mockAction.rejected,
-          assumptions: ["空席は確認していない"],
-          tradeoffs: rain ? ["屋外を避け屋内を優先"] : [],
-        },
+        mockValue: mockDecision,
       });
 
       for (const attempt of llm.attempts.length ? llm.attempts : [llm]) {
@@ -379,7 +475,15 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
           latencyMs: llm.latencyMs,
           ok: llm.ok,
         },
-        payload: { reason: llm.routeReason, coerced: llm.coerced, escalated: llm.escalated, schemaMode: llm.schemaMode },
+        payload: {
+          reason: llm.routeReason,
+          coerced: llm.coerced,
+          escalated: llm.escalated,
+          schemaMode: llm.schemaMode,
+          decision: llm.data?.type ?? null,
+          lastValidation,
+          step: toolBudget.steps,
+        },
       });
       if (llm.coerced) await appendEvent(runId, "LLM_COERCED", "寛容パースを最終手段として使用");
       await withStore((db) => {
@@ -403,14 +507,170 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
         return;
       }
 
+      const decision = llm.ok && llm.data ? llm.data : env.profile === "LIVE" ? null : mockDecision;
+      if (!decision) {
+        sourceIds = [];
+        break;
+      }
+
+      if (decision.type === "CALL_TOOLS") {
+        const calls = defaultToolCalls(
+          decision.toolNames,
+          session.input,
+          rain,
+          decision.orderedSpotIds.length ? decision.orderedSpotIds : mockAction.selected,
+        );
+        if (!calls.length) {
+          lastValidation = lastValidation ?? "NO_TOOLS";
+          toolResults.push({ step: toolBudget.steps, error: "empty toolNames" });
+          await appendEvent(runId, "TOOL_COMPLETED", "ツール名が空のため検証結果だけを次へ渡す", {
+            payload: { lastValidation, step: toolBudget.steps },
+          });
+          continue;
+        }
+        for (const call of calls) {
+          await appendEvent(runId, "TOOL_STARTED", call.name);
+          const result = await runTool(call, ctx, session.input, spotMap, memories);
+          if (call.name === "search_spots" || call.name === "propose_candidates" || call.name === "get_spot_details") {
+            walk = { spots: Object.values(spotMap).filter((s) => /park|tourist|散歩/.test(s.categories.join(" ").toLowerCase() + s.name)) };
+            exhibit = { spots: Object.values(spotMap).filter((s) => /museum|art|展示/.test(s.categories.join(" ").toLowerCase())) };
+            sweets = { spots: Object.values(spotMap).filter((s) => /cafe|bakery|sweet/.test(s.categories.join(" ").toLowerCase())) };
+          }
+          if (call.name === "validate_plan") {
+            const ids = call.args.orderedSpotIds.filter((id) => Boolean(spotMap[id]));
+            const preview = validatePlan(
+              {
+                version: 1,
+                items: ids.map((spotId, i) => ({
+                  id: `preview_${i}`,
+                  spotId,
+                  startAt: `${session.input.dateTokyo}T${session.input.startTime}:00+09:00`,
+                  endAt: `${session.input.dateTokyo}T${session.input.endTime}:00+09:00`,
+                  progress: "NOT_STARTED" as const,
+                  locked: lockedIds.includes(spotId),
+                  lockReason: null,
+                  matchesPreferenceIds: [],
+                  memoryIds: [],
+                  reason: "tool",
+                  evidenceIds: [],
+                })),
+                legs: [],
+                openings: [],
+                assumptions: [],
+                validation: { state: "PASS", issues: [] },
+                planB: [],
+                costEstimate: {
+                  mealsJpy: { value: null, evidenceIds: [] },
+                  facilitiesJpy: { value: null, evidenceIds: [] },
+                  transitJpy: { value: null, evidenceIds: [] },
+                  totalJpy: { value: null, evidenceIds: [] },
+                },
+                dataMode: "LIVE",
+                memoryInfluences: [],
+                preferenceOutcomes: [],
+              },
+              { spots: spotMap, input: session.input },
+            );
+            lastValidation = `${preview.state}:${preview.issues.map((i) => i.code).join(",")}`;
+          }
+          if (call.name === "ask_clarification") {
+            const question = {
+              id: newId("q"),
+              prompt: call.args.prompt,
+              options: call.args.options,
+            };
+            await patchRun(runId, {
+              status: "WAITING_INPUT",
+              waitingQuestion: question,
+              leaseOwner: null,
+            });
+            await appendEvent(runId, "INPUT_REQUIRED", question.prompt, { payload: { question } });
+            return;
+          }
+          toolResults.push({ step: toolBudget.steps, name: call.name, result });
+          await appendEvent(runId, "TOOL_COMPLETED", `${call.name} → 次判断へ`, {
+            payload: { name: call.name, result, lastValidation },
+          });
+        }
+        continue;
+      }
+
+      if (decision.type === "ASK_USER") {
+        const prompt = decision.questionPrompt ?? "判断に必要な確認";
+        const options = decision.questionOptions.length >= 2 ? decision.questionOptions : ["はい", "分からない"];
+        const question = { id: newId("q"), prompt, options };
+        await patchRun(runId, { status: "WAITING_INPUT", waitingQuestion: question, leaseOwner: null });
+        await appendEvent(runId, "INPUT_REQUIRED", prompt, { payload: { question, lastValidation } });
+        return;
+      }
+
+      if (decision.type === "STOP") {
+        await patchRun(runId, {
+          status: "FAILED",
+          finishedAt: realNowIso(),
+          error: decision.reason || "agent stop",
+          leaseOwner: null,
+        });
+        await appendEvent(runId, "RUN_FINISHED", `STOP: ${decision.reason}`);
+        return;
+      }
+
       sourceIds =
-        llm.ok && llm.data?.orderedSpotIds?.length
-          ? llm.data.orderedSpotIds
+        decision.orderedSpotIds.length
+          ? decision.orderedSpotIds
           : env.profile === "LIVE"
             ? []
             : mockAction.selected;
-      llmRejected = llm.data?.rejected ?? [];
+      llmRejected = decision.rejected ?? [];
+      const previewIds = sourceIds.filter((id) => spotMap[id] || getCatalogSpot(id) || id.startsWith("mock:"));
+      if (previewIds.length) {
+        const preview = validatePlan(
+          {
+            version: 1,
+            items: previewIds.map((spotId, i) => ({
+              id: `preview_${i}`,
+              spotId,
+              startAt: `${session.input.dateTokyo}T${session.input.startTime}:00+09:00`,
+              endAt: `${session.input.dateTokyo}T${session.input.endTime}:00+09:00`,
+              progress: "NOT_STARTED" as const,
+              locked: lockedIds.includes(spotId),
+              lockReason: null,
+              matchesPreferenceIds: [],
+              memoryIds: [],
+              reason: "propose",
+              evidenceIds: [],
+            })),
+            legs: [],
+            openings: [],
+            assumptions: decision.assumptions,
+            validation: { state: "PASS", issues: [] },
+            planB: [],
+            costEstimate: {
+              mealsJpy: { value: null, evidenceIds: [] },
+              facilitiesJpy: { value: null, evidenceIds: [] },
+              transitJpy: { value: null, evidenceIds: [] },
+              totalJpy: { value: null, evidenceIds: [] },
+            },
+            dataMode: "LIVE",
+            memoryInfluences: [],
+            preferenceOutcomes: [],
+          },
+          { spots: spotMap, input: session.input },
+        );
+        lastValidation = `${preview.state}:${preview.issues.filter((i) => i.severity === "ERROR").map((i) => i.code).join(",")}`;
+        await appendEvent(runId, "TOOL_COMPLETED", `提案を検証して次判断へ ${lastValidation}`, {
+          payload: { lastValidation, step: toolBudget.steps, orderedSpotIds: sourceIds },
+        });
+        if (preview.state === "FAIL" && toolBudget.steps < LIMITS.maxDecisionSteps) {
+          toolResults.push({ step: toolBudget.steps, name: "validate_plan", result: lastValidation });
+          continue;
+        }
+      }
+      decided = true;
       break;
+    }
+    if (!decided && !sourceIds.length && env.profile !== "LIVE") {
+      sourceIds = mockAction.selected;
     }
   }
 
@@ -626,7 +886,7 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
       found.run.leaseOwner = null;
     });
     await appendEvent(runId, "APPROVAL_REQUIRED", auto.reasons.join(" / "), {
-      payload: { approvalId, diff: d },
+      payload: { approvalId, diff: d, reasons: auto.reasons, validation: built.plan.validation.state },
     });
     return;
   }
@@ -643,5 +903,3 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
   await appendEvent(runId, "RUN_FINISHED", "完了");
 }
 
-void allowedToolCallSchema;
-void runTool;

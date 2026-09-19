@@ -35,14 +35,18 @@ export async function executeRun(runId: string): Promise<void> {
     await runPlanningOrchestrator(runId, controller.signal);
   } catch (error) {
     const message = maskSecrets(error instanceof Error ? error.message : "unknown error");
-    await withStore((db) => {
-      const found = findRun(db, runId);
-      if (!found) return;
-      found.run.status = controller.signal.aborted ? "PARTIAL" : "FAILED";
-      found.run.error = message;
-      found.run.finishedAt = realNowIso();
-      found.run.leaseOwner = null;
-    });
+    try {
+      await withStore((db) => {
+        const found = findRun(db, runId);
+        if (!found) return;
+        found.run.status = controller.signal.aborted ? "PARTIAL" : "FAILED";
+        found.run.error = message;
+        found.run.finishedAt = realNowIso();
+        found.run.leaseOwner = null;
+      });
+    } catch {
+      /* persist blocked; caller が CREDENTIALS / UNIMPLEMENTED を見る */
+    }
   } finally {
     clearTimeout(timer);
     void env;

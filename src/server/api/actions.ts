@@ -27,6 +27,7 @@ import {
   type SessionBundle,
 } from "@/server/repositories/store";
 import { getCatalogSpot } from "@/server/providers/catalog";
+import { applyConfirmedAnswerInPlace } from "@/server/agent/reflection";
 
 function gitSha(): string | null {
   return process.env.GIT_COMMIT ?? process.env.VERCEL_GIT_COMMIT_SHA ?? null;
@@ -317,80 +318,14 @@ export async function answerQuestion(uid: string, runId: string, questionId: str
       createdAt: realNowIso(),
     };
     found.bundle.session.status = "REFLECTED";
-    if (answer !== "保存しない" && answer !== "分からない") {
-      const existing = Object.values(found.couple.memoryCandidates).filter(
-        (c) => c.sessionId === found.bundle.session.id && !c.answerId,
-      );
-      if (existing.length) {
-        for (const cand of existing) {
-          cand.answerId = questionId;
-          const approvalId = newId("appr");
-          found.couple.approvals[approvalId] = {
-            id: approvalId,
-            coupleId: found.couple.couple.id,
-            sessionId: found.bundle.session.id,
-            runId,
-            planVersionFrom: found.bundle.session.currentPlanVersion ?? 0,
-            planVersionTo: found.bundle.session.currentPlanVersion ?? 0,
-            kind: "MEMORY_SAVE",
-            status: "PENDING",
-            summary: `記憶候補: ${cand.content}`,
-            diff: null,
-            consumedAt: null,
-            createdAt: realNowIso(),
-            payloadId: cand.id,
-            payloadVersion: 1,
-            candidateId: cand.id,
-            candidateVersion: 1,
-            sourceMemoryId: null,
-            sourceVersion: null,
-            replacementCandidateId: null,
-            presentedHash: candidateContentHash(cand),
-          };
-        }
-      } else {
-        const cid = newId("mc");
-        found.couple.memoryCandidates[cid] = {
-          id: cid,
-          coupleId: found.couple.couple.id,
-          sessionId: found.bundle.session.id,
-          reflectionId,
-          answerId: questionId,
-          subject: "PARTNER",
-          type: "CARE",
-          content: answer,
-          sourceType: "PARTNER_STATEMENT_REPORTED",
-          evidenceQuote: masked.masked,
-          strength: "SOFT",
-          scope: "NEXT_DATE",
-          createdAt: realNowIso(),
-          injectionFlags: detectInjection(answer).map((f) => f.code),
-        };
-        const approvalId = newId("appr");
-        found.couple.approvals[approvalId] = {
-          id: approvalId,
-          coupleId: found.couple.couple.id,
-          sessionId: found.bundle.session.id,
-          runId,
-          planVersionFrom: found.bundle.session.currentPlanVersion ?? 0,
-          planVersionTo: found.bundle.session.currentPlanVersion ?? 0,
-          kind: "MEMORY_SAVE",
-          status: "PENDING",
-          summary: `記憶候補: ${answer}`,
-          diff: null,
-          consumedAt: null,
-          createdAt: realNowIso(),
-          payloadId: cid,
-          payloadVersion: 1,
-          candidateId: cid,
-          candidateVersion: 1,
-          sourceMemoryId: null,
-          sourceVersion: null,
-          replacementCandidateId: null,
-          presentedHash: candidateContentHash(found.couple.memoryCandidates[cid]!),
-        };
-      }
-    }
+    applyConfirmedAnswerInPlace({
+      couple: found.couple,
+      bundle: found.bundle,
+      runId,
+      questionId,
+      answer,
+      reflectionId,
+    });
     found.run.status = "SUCCEEDED";
     found.run.finishedAt = realNowIso();
     found.run.waitingQuestion = null;
@@ -453,6 +388,9 @@ export async function decideApproval(uid: string, approvalId: string, decision: 
             return { ok: false as const, status: 409, error: "source version mismatch" };
           }
           if (old) old.active = false;
+        }
+        if (candidate.sourceType === "HYPOTHESIS") {
+          return { ok: false as const, status: 409, error: "hypothesis cannot be stored as memory" };
         }
         const mem = candidateToMemory({
           candidate,
