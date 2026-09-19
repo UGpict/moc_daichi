@@ -212,7 +212,7 @@ export async function callLLM<T>(input: {
       costUsd: json.usage?.cost_usd ?? null,
       costJpy: usdToJpy(json.usage?.cost_usd ?? null),
       latencyMs,
-      error: checked.success ? null : `schema validation failed${issue ? ` (${issue})` : ""}`,
+      error: checked.success ? null : `schema validation failed${issue ? ` (${issue})` : ""} ${content.slice(0, 180).replace(/\s+/g, " ")}`.trim(),
     };
   };
 

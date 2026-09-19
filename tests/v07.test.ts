@@ -292,4 +292,22 @@ describe("v0.7 regression", () => {
     });
     assert.equal(r.apply, false);
   });
+
+  it("coerces messy reflection JSON from live models", async () => {
+    const { reflectionLlmSchema } = await import("../src/server/llm/taskSchemas");
+    const parsed = reflectionLlmSchema.parse({
+      observations: "カフェが好評で展示で疲れた",
+      uncertainties: "",
+      clarification: "",
+      memoryCandidates: {
+        type: "PREFERENCE",
+        content: "カフェが好評だった",
+        evidenceQuote: "カフェは喜んでた",
+      },
+    });
+    assert.equal(parsed.observations[0], "カフェが好評で展示で疲れた");
+    assert.equal(parsed.clarification, null);
+    assert.equal(parsed.memoryCandidates[0]?.sourceType, "OBSERVATION");
+    assert.equal(parsed.memoryCandidates[0]?.subject, "PARTNER");
+  });
 });
