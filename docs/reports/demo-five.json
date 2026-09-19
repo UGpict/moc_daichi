@@ -1,165 +1,80 @@
 {
-  "at": "2026-09-19T12:53:28.510Z",
+  "at": "2026-09-19T15:52:06.640Z",
   "reports": [
     {
       "ok": true,
-      "git": "7e5d912",
+      "git": "53f853e",
       "runIds": [
-        "run_1aae9e737fc7119d",
-        "run_9e04f866dd870b1e",
-        "run_42e4057d7a61eebe",
-        "run_38a111be0efd60c4",
-        "run_b6d70a0363b1b47c"
+        "run_ad3ea1a0b000ebef",
+        "run_032a0232ddd48935",
+        "run_cefadcc9304dfb64",
+        "run_242a09e462c031d9",
+        "run_b9a38532ded53506"
       ],
       "durationsMs": [
-        1155,
-        735,
-        1092,
-        898
+        3582,
+        3556,
+        3537,
+        3536
       ],
       "costs": [
         {
-          "llmJpy": 0,
-          "apiJpy": 0,
+          "llmJpy": 0.378972,
+          "apiJpy": null,
           "mundaneCalls": 0,
           "hardCalls": 1,
           "unaccountedCalls": 0
         }
       ],
       "notes": [
-        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain AUTO_NOTIFY",
-        "memory influence DURATION,DURATION,REST_INSERT"
+        "meet=ChIJiYvXlOd2A2ARYxYm-Esg94E museum=ChIJiaAgDi13A2ARt6jZobbCNuw",
+        "first status=SUCCEEDED validation=CONDITIONAL items=3 runs=INITIAL_PLAN:SUCCEEDED",
+        "rain APPROVAL",
+        "delay status=FAILED (expected WAITING_APPROVAL)",
+        "reflection status=WAITING_APPROVAL",
+        "確認質問なし。保存候補の承認へ",
+        "next plan has no visible memory influence"
       ],
       "failures": []
     },
     {
-      "ok": true,
-      "git": "7e5d912",
+      "ok": false,
+      "git": "53f853e",
       "runIds": [
-        "run_47da41d2e8ada98c",
-        "run_adf60de5431c590f",
-        "run_4edaf329b48de549",
-        "run_54203d112af6bf98",
-        "run_53ffda9160eb99ae"
+        "run_0f02ef15ca8fd55d",
+        "run_78d499361eed96e4",
+        "run_f530992f2da0e6b6",
+        "run_3d49ac97137c3b86",
+        "run_b312c26005d600f8"
       ],
       "durationsMs": [
-        732,
-        821,
-        1027,
-        915
+        4465,
+        2770,
+        3312,
+        3158
       ],
       "costs": [
         {
-          "llmJpy": 0,
-          "apiJpy": 0,
+          "llmJpy": 0.411642,
+          "apiJpy": null,
           "mundaneCalls": 0,
           "hardCalls": 1,
           "unaccountedCalls": 0
         }
       ],
       "notes": [
-        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain AUTO_NOTIFY",
-        "memory influence DURATION,DURATION,REST_INSERT"
+        "meet=ChIJiYvXlOd2A2ARYxYm-Esg94E museum=ChIJiaAgDi13A2ARt6jZobbCNuw",
+        "first status=FAILED validation=FAIL items=4 runs=INITIAL_PLAN:FAILED",
+        "rain status=SUCCEEDED",
+        "delay status=FAILED (expected WAITING_APPROVAL)",
+        "reflection status=WAITING_APPROVAL",
+        "確認質問なし。保存候補の承認へ",
+        "next plan has no visible memory influence"
       ],
-      "failures": []
-    },
-    {
-      "ok": true,
-      "git": "7e5d912",
-      "runIds": [
-        "run_2e8e74d46622dc70",
-        "run_f7f7364146506dbb",
-        "run_e6f2ee269db6b473",
-        "run_cf1246b1434f6c25",
-        "run_af81b972624c5127"
-      ],
-      "durationsMs": [
-        652,
-        1147,
-        1108,
-        974
-      ],
-      "costs": [
-        {
-          "llmJpy": 0,
-          "apiJpy": 0,
-          "mundaneCalls": 0,
-          "hardCalls": 1,
-          "unaccountedCalls": 0
-        }
-      ],
-      "notes": [
-        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain AUTO_NOTIFY",
-        "memory influence DURATION,DURATION,REST_INSERT"
-      ],
-      "failures": []
-    },
-    {
-      "ok": true,
-      "git": "7e5d912",
-      "runIds": [
-        "run_4706bde854995e9c",
-        "run_33978924183a517d",
-        "run_c101051b5345cf19",
-        "run_2aa34df58130d376",
-        "run_06e04fcd81f01a56"
-      ],
-      "durationsMs": [
-        680,
-        925,
-        1197,
-        899
-      ],
-      "costs": [
-        {
-          "llmJpy": 0,
-          "apiJpy": 0,
-          "mundaneCalls": 0,
-          "hardCalls": 1,
-          "unaccountedCalls": 0
-        }
-      ],
-      "notes": [
-        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain AUTO_NOTIFY",
-        "memory influence DURATION,DURATION,REST_INSERT"
-      ],
-      "failures": []
-    },
-    {
-      "ok": true,
-      "git": "7e5d912",
-      "runIds": [
-        "run_82abfa707397e4b8",
-        "run_8b2e3daa133c1225",
-        "run_8e7ecb670adc0534",
-        "run_a7713061ad6ebd39",
-        "run_435312d57df1b000"
-      ],
-      "durationsMs": [
-        748,
-        874,
-        1163,
-        776
-      ],
-      "costs": [
-        {
-          "llmJpy": 0,
-          "apiJpy": 0,
-          "mundaneCalls": 0,
-          "hardCalls": 1,
-          "unaccountedCalls": 0
-        }
-      ],
-      "notes": [
-        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain AUTO_NOTIFY",
-        "memory influence DURATION,DURATION,REST_INSERT"
-      ],
-      "failures": []
+      "failures": [
+        "initial validation FAIL: LATE_TO_END,OPENING_UNKNOWN,OPENING_UNKNOWN,OPENING_UNKNOWN,OPENING_UNKNOWN,COST_UNKNOWN,COST_UNKNOWN,COST_UNKNOWN,COST_UNKNOWN",
+        "rain produced neither notify nor approval"
+      ]
     }
   ]
 }

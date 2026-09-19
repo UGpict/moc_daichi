@@ -211,6 +211,8 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         evidenceQuote: c.evidenceQuote,
         strength: c.strength,
         scope: c.scope,
+        careTarget: c.careTarget ?? (/疲|立/.test(c.content + masked) ? "STANDING" : /甘|カフェ/.test(c.content + masked) ? "SWEETS" : null),
+        careDirection: c.careDirection ?? (/疲|立/.test(c.content + masked) ? "REDUCE" : /甘|カフェ/.test(c.content + masked) ? "PREFER" : null),
         createdAt: realNowIso(),
       };
       const checked = validateMemoryCandidate(candidate);
@@ -233,6 +235,8 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         evidenceQuote: masked.slice(0, 80),
         strength: "SOFT",
         scope: "NEXT_DATE",
+        careTarget: /疲|立/.test(masked) ? "STANDING" : /甘|カフェ/.test(masked) ? "SWEETS" : null,
+        careDirection: /疲|立/.test(masked) ? "REDUCE" : /甘|カフェ/.test(masked) ? "PREFER" : null,
         createdAt: realNowIso(),
       };
       if (validateMemoryCandidate(candidate).ok) {

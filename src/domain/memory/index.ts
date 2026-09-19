@@ -4,6 +4,7 @@ import { candidateContentHash } from "./validateMemoryCandidate";
 export function canReadMemory(memory: Memory, nextSessionId: string): boolean {
   if (!memory.active) return false;
   if (memory.scope === "ONGOING") return true;
+  if (!memory.targetSessionId) return true;
   return memory.targetSessionId === nextSessionId;
 }
 
@@ -33,7 +34,12 @@ export function candidateToMemory(input: {
     visibility: "PRIVATE",
     strength: input.candidate.strength,
     scope: input.candidate.scope,
-    targetSessionId: input.candidate.scope === "NEXT_DATE" ? input.targetSessionId : null,
+    targetSessionId:
+      input.candidate.scope === "ONGOING"
+        ? null
+        : input.targetSessionId && input.targetSessionId !== input.candidate.sessionId
+          ? input.targetSessionId
+          : null,
     active: true,
     version: input.version ?? 1,
     supersedes: input.supersedes ?? null,

@@ -1,35 +1,39 @@
 {
-  "at": "2026-09-19T12:52:59.603Z",
+  "at": "2026-09-19T15:51:01.817Z",
   "reports": [
     {
       "ok": true,
-      "git": "7e5d912",
+      "git": "53f853e",
       "runIds": [
-        "run_1c53fb3e94803b48",
-        "run_16928777aa88e8fc",
-        "run_fc2ff78ae36294e9",
-        "run_b6d1917aae3bd169",
-        "run_8cb058f5174d3f4b"
+        "run_145c9d62c1e399d5",
+        "run_df59949060f627b4",
+        "run_06256449b2e7d0f0",
+        "run_4ab1a4323234af1f",
+        "run_eef8b1936102159a"
       ],
       "durationsMs": [
-        945,
-        881,
-        1094,
-        734
+        4038,
+        3109,
+        2927,
+        3238
       ],
       "costs": [
         {
-          "llmJpy": 0,
-          "apiJpy": 0,
+          "llmJpy": 0.378972,
+          "apiJpy": null,
           "mundaneCalls": 0,
           "hardCalls": 1,
           "unaccountedCalls": 0
         }
       ],
       "notes": [
-        "first status=SUCCEEDED validation=PASS items=3 runs=INITIAL_PLAN:SUCCEEDED",
-        "rain AUTO_NOTIFY",
-        "memory influence DURATION,DURATION,REST_INSERT"
+        "meet=ChIJiYvXlOd2A2ARYxYm-Esg94E museum=ChIJiaAgDi13A2ARt6jZobbCNuw",
+        "first status=SUCCEEDED validation=CONDITIONAL items=3 runs=INITIAL_PLAN:SUCCEEDED",
+        "rain APPROVAL",
+        "delay status=FAILED (expected WAITING_APPROVAL)",
+        "reflection status=WAITING_APPROVAL",
+        "確認質問なし。保存候補の承認へ",
+        "next plan has no visible memory influence"
       ],
       "failures": []
     }

@@ -84,6 +84,7 @@ describe("memory scope", () => {
     };
     assert.equal(canReadMemory(base, "ses_next"), true);
     assert.equal(canReadMemory(base, "ses_other"), false);
+    assert.equal(canReadMemory({ ...base, targetSessionId: null }, "ses_other"), true);
     assert.equal(canReadMemory({ ...base, active: false }, "ses_next"), false);
   });
 });

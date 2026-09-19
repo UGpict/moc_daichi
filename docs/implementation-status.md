@@ -24,15 +24,15 @@
 
 ## 検証済み（この環境で実行）
 
-- `npm test` の回帰（極性、0円予算、FAIL 適用拒否、lease fencing、digest キー、壊れ JSON）
-- 型検証・lint・build はこのレポート作成時に再実行する
+- `npm test` の回帰（極性、0円予算、FAIL 適用拒否、lease fencing、digest キー、壊れ JSON、振り返り JSON の coerce）
+- LIVE 単発通し成功（commit `53f853e`）。Orca `openai/gpt-4o-mini` / `openai/gpt-4o`、Places、Routes、Firebase 匿名。詳細は `docs/live-results.md`
+- 型検証はこの作業中に再実行
 
 ## 未実装 / 部分的
 
-- Firestore Admin への実書き込みパスは DEV 実行では JSON アダプタのまま。Emulator 実プロセス結合は資格情報/エミュレータ起動待ち
+- Firestore Admin への実書き込みパスは JSON アダプタのまま。ADC 実ファイル待ち
 - 公式イベント Occurrence の外部取得（許可サイト/公式 API）は未接続。未確認として施設カードで成立
-- 写真は初回推論の必須待機にしない（実装済み）が、LIVE 写真取得は Maps キー待ち
-- LIVE 通し 5 連・実測時間・実費用はキー不足のため未実施
+- LIVE 5連は 1 本目成功・2 本目が実移動時間の FAIL で停止（連続 1 / 5）。条件は緩和しない
 - 画面収録は未収録
 - 既存 `.data/store.json` の破壊的移行は作っていない（ドライラン/エクスポート方針のみ。無断上書きしない）
 
@@ -40,9 +40,7 @@
 
 | 項目 | 必要なもの |
 |---|---|
-| Firebase LIVE | `NEXT_PUBLIC_FIREBASE_*`、ADC または `GOOGLE_APPLICATION_CREDENTIALS`、匿名 Auth 許可 |
-| OrcaRouter | `ORCAROUTER_API_KEY`、実在する Named Router 名 |
-| Google Maps | `GOOGLE_MAPS_API_KEY`（Places New / Routes） |
+| Firestore LIVE | 実在する `GOOGLE_APPLICATION_CREDENTIALS`（この環境のパスはプレースホルダ） |
 | 発表会場 | 東京の住所・最寄り駅。未提供のため開発デモは名古屋駅周辺を明示 |
 
 LIVE 要求時にキーが無ければ失敗し、モックへ自動降格しない。Emulator 成功を LIVE 成功としない。
