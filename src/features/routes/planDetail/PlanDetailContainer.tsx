@@ -186,8 +186,8 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
               />
             </div>
           ))}
-          {data.plan?.validation.issues.map((iss) => (
-            <p key={iss.code + iss.message} className="text-sm">
+          {data.plan?.validation.issues.map((iss, idx) => (
+            <p key={`${iss.code}-${idx}`} className="text-sm">
               {iss.severity}: {iss.message}
             </p>
           ))}
