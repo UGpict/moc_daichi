@@ -32,7 +32,7 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
   const start = await withStore((db) => {
     db.digests ??= {};
     const cur = db.digests[id];
-    if (cur?.status === "READY" && cur.items.length > 0) return false;
+    if (cur?.status === "READY" && cur.items.length > 0 && (cur.format ?? 1) >= 2) return false;
     if (cur?.status === "FETCHING") {
       const age = Date.now() - new Date(cur.fetchedAt).getTime();
       if (age < 120_000) return false;
@@ -48,6 +48,7 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
       note: "Asia/Tokyo の日付で一日一回取得します",
       items: cur?.items ?? [],
       spots: cur?.spots ?? {},
+      format: 2,
     };
     return true;
   });
@@ -87,10 +88,19 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
     ),
   );
 
-  for (const pack of [...textResults, ...nearbyResults]) {
-    for (const spot of pack.spots) {
-      if (seen.has(spot.id) || items.length >= 16) continue;
-      if (spot.id === "mock:nagoya-station") continue;
+  const packs = [...textResults, ...nearbyResults].map((pack) => ({
+    ...pack,
+    spots: pack.spots.filter((s) => s.id !== "mock:nagoya-station"),
+  }));
+
+  let added = true;
+  let guard = 0;
+  while (items.length < 16 && added && guard < 24) {
+    added = false;
+    guard += 1;
+    for (const pack of packs) {
+      const spot = pack.spots.find((s) => !seen.has(s.id));
+      if (!spot || items.length >= 16) continue;
       seen.add(spot.id);
       spots[spot.id] = spot;
       items.push({
@@ -105,6 +115,7 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
         query: pack.q.query,
         why: pack.q.why,
       });
+      added = true;
     }
   }
 
@@ -123,6 +134,7 @@ export async function maybeRefreshDailyDigest(): Promise<void> {
         : "今日の候補を取得できませんでした",
       items,
       spots,
+      format: 2,
     };
   });
 }

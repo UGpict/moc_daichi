@@ -537,6 +537,7 @@ export const dailyDigestSchema = z.object({
   note: z.string(),
   items: z.array(digestItemSchema),
   spots: z.record(z.string(), spotSchema),
+  format: z.number().default(1),
 });
 export type DailyDigest = z.infer<typeof dailyDigestSchema>;
 
