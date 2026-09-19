@@ -129,8 +129,84 @@ export interface CaseInquiry {
   municipalityVerified: boolean;
 }
 
+export const TALK_STEPS = [
+  "open",
+  "clarify_burden",
+  "who_attends",
+  "schedule_flex",
+  "modest_check",
+  "paused",
+  "summary",
+  "correct_who",
+  "correct_schedule",
+  "inquiry_offer",
+  "inquiry_waiting",
+  "inquiry_followup",
+  "share",
+  "handover_ready",
+  "family_status",
+  "family_arrival",
+  "family_proposal",
+  "family_correct",
+  "family_ready",
+] as const;
+
+export type TalkStep = (typeof TALK_STEPS)[number];
+
+export type ViewerRole = "mother" | "family";
+
+export type MemoryKind = "said" | "interpretation" | "confirmed" | "external_fact";
+
+export type MemoryCategory =
+  | "values"
+  | "wishes"
+  | "reason"
+  | "cost"
+  | "flexibility"
+  | "handover"
+  | "prep"
+  | "unknown";
+
+export interface MemoryRecord {
+  id: string;
+  kind: MemoryKind;
+  category: MemoryCategory;
+  text: string;
+  sourceQuote?: string;
+  private: boolean;
+}
+
+export interface TalkMessage {
+  id: string;
+  from: "shirube" | "user";
+  text: string;
+  private?: boolean;
+}
+
+export type SummaryDecision = "undecided" | "confirmed" | "deferred";
+
+export type ArrivalSlot = "apr16_evening" | "apr16_morning" | "undecided";
+
+export interface ShareSelection {
+  includeWishes: boolean;
+  includeConfirmed: boolean;
+  includeUndecided: boolean;
+  includeEstimate: boolean;
+  includePrivate: boolean;
+  sharedWithKenichi: boolean;
+}
+
+export interface FamilyJudgment {
+  statusNote: string | null;
+  arrival: ArrivalSlot | null;
+  wantsRelatives: boolean;
+  acceptedProposal: boolean;
+  proposedDate: string | null;
+  proposedReason: string | null;
+}
+
 export interface DemoState {
-  version: 3;
+  version: 4;
   track: DemoTrack;
   inquiryStatus: InquiryStatus;
   conditions: CostConditions;
@@ -150,6 +226,16 @@ export interface DemoState {
   autoPlay: boolean;
   nextAutoAt: number | null;
   appliedEventIds: DemoEventId[];
+  viewerRole: ViewerRole;
+  talkStep: TalkStep;
+  resumeStep: TalkStep;
+  messages: TalkMessage[];
+  memories: MemoryRecord[];
+  summaryDecision: SummaryDecision;
+  share: ShareSelection;
+  familyJudgment: FamilyJudgment;
+  timePassed: boolean;
+  messageSeq: number;
 }
 
 export interface CostLine {

@@ -3,7 +3,10 @@ import type {
   CheckItemId,
   CostConditions,
   DemoState,
+  FamilyJudgment,
   PermitFlags,
+  ShareSelection,
+  TalkMessage,
 } from "./types";
 
 export const CONFIRMATION_DATE = "2026年4月12日";
@@ -95,8 +98,35 @@ export const EMPTY_PERMIT: PermitFlags = {
   handedOver: false,
 };
 
+export const TALK_OPENING =
+  "春子さん、今日はどんなことを話しておきたいですか。";
+
+export const FAMILY_HANDOVER_DATE = "2026年4月15日";
+
+export const DEFAULT_SHARE: ShareSelection = {
+  includeWishes: true,
+  includeConfirmed: true,
+  includeUndecided: true,
+  includeEstimate: true,
+  includePrivate: false,
+  sharedWithKenichi: false,
+};
+
+export const DEFAULT_FAMILY_JUDGMENT: FamilyJudgment = {
+  statusNote: null,
+  arrival: null,
+  wantsRelatives: false,
+  acceptedProposal: false,
+  proposedDate: null,
+  proposedReason: null,
+};
+
+export const OPENING_MESSAGES: TalkMessage[] = [
+  { id: "m-open", from: "shirube", text: TALK_OPENING },
+];
+
 export const DEFAULT_DEMO_STATE: DemoState = {
-  version: 3,
+  version: 4,
   track: "prep",
   inquiryStatus: "awaiting_approval",
   conditions: DEFAULT_CONDITIONS,
@@ -116,6 +146,16 @@ export const DEFAULT_DEMO_STATE: DemoState = {
   autoPlay: false,
   nextAutoAt: null,
   appliedEventIds: [],
+  viewerRole: "mother",
+  talkStep: "open",
+  resumeStep: "open",
+  messages: [...OPENING_MESSAGES],
+  memories: [],
+  summaryDecision: "undecided",
+  share: { ...DEFAULT_SHARE },
+  familyJudgment: { ...DEFAULT_FAMILY_JUDGMENT },
+  timePassed: false,
+  messageSeq: 1,
 };
 
 export const REPLY_DELAY_MS = 1000;

@@ -6,11 +6,12 @@ import { useDemo } from "@/components/demo-provider";
 import { ShirubeAvatar } from "@/components/shirube-avatar";
 
 const titles: Record<string, string> = {
-  "/demo": "ご自身の準備",
+  "/demo": "しるべと話す",
   "/demo/estimate": "見積もりの確認",
   "/demo/agent": "聞いてよいか確認",
-  "/demo/summary": "子どもに残す一枚",
-  "/demo/family": "家族が見る画面",
+  "/demo/summary": "お話をまとめました",
+  "/demo/share": "家族に残す内容",
+  "/demo/family": "家族の画面",
   "/demo/procedure": "必要になったときの手続き",
 };
 

@@ -22,7 +22,7 @@ describe("demo state persistence", () => {
     assert.equal(
       parseDemoState({
         ...DEFAULT_DEMO_STATE,
-        version: 2,
+        version: 3,
       }),
       null,
     );

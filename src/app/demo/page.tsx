@@ -1,52 +1,58 @@
 "use client";
 
-import { ProgressSteps } from "@/components/progress-steps";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { TalkPanel } from "@/components/talk-panel";
 import { useDemo } from "@/components/demo-provider";
-import { Card, PageTitle, PrimaryLink, SecondaryLink } from "@/components/ui";
-import { formatYen } from "@/lib/format";
-import { getDemoProgress } from "@/lib/inquiry";
-import { FAMILY, FUNERAL_HOME, WISHES } from "@/lib/sample-data";
+import { Notice, PrimaryLink, SecondaryLink } from "@/components/ui";
+import { conversationRoute } from "@/lib/conversation";
 
-export default function DemoHomePage() {
-  const { state } = useDemo();
-  const progress = getDemoProgress(state);
+export default function TalkPage() {
+  const router = useRouter();
+  const { state, ready, applyTalk } = useDemo();
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+    const next = conversationRoute(state);
+    if (next !== "/demo") {
+      router.replace(next);
+    }
+  }, [ready, router, state]);
+
+  function handleSubmit(value: string) {
+    const next = applyTalk(value);
+    const route = conversationRoute(next);
+    if (route !== "/demo") {
+      router.push(route);
+    }
+  }
+
+  if (!ready) {
+    return <p className="text-lg text-ink-soft">読み込んでいます…</p>;
+  }
+
+  if (conversationRoute(state) !== "/demo") {
+    return <p className="text-lg text-ink-soft">次の画面へ移ります…</p>;
+  }
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <PageTitle eyebrow="ご自身の準備">いま確認すること</PageTitle>
-      <p className="text-lg leading-relaxed text-ink-soft">
-        難しい手続きは、あとからです。いまは希望と、見積もりの分からないところだけ見ます。
-      </p>
-
-      <Card>
-        <h2 className="text-xl font-semibold">{FAMILY.principal}さんの希望</h2>
-        <p className="mt-3 text-lg">{WISHES.style}</p>
-        <p className="mt-1 text-lg text-ink-soft">
-          予算の目安 {formatYen(WISHES.budgetYen)}
-        </p>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-lg">
-          {WISHES.values.map((value) => (
-            <li key={value}>{value}</li>
-          ))}
-        </ul>
-        <p className="mt-4 text-base text-ink-soft">
-          見積書は{FUNERAL_HOME.name}（{FUNERAL_HOME.fictionalNote}）1社分です。
-        </p>
-      </Card>
-
-      <Card>
-        <h2 className="text-xl font-semibold">進み方</h2>
-        <div className="mt-4">
-          <ProgressSteps steps={progress.steps} />
-        </div>
-      </Card>
-
-      <div className="flex flex-col gap-2">
-        <PrimaryLink href={progress.ctaHref}>{progress.ctaLabel}</PrimaryLink>
-        {state.track === "procedure" ? (
-          <SecondaryLink href="/demo/procedure">手続きの続きを見る</SecondaryLink>
-        ) : null}
-      </div>
+      <Notice>
+        体験版です。音声入力は使わず、言葉と短い選択肢で進めます。一度に一つだけ聞きます。
+      </Notice>
+      <TalkPanel
+        state={state}
+        onSubmit={handleSubmit}
+        speakerLabel={state.viewerRole === "family" ? "健一さん" : "春子さん"}
+      />
+      {state.talkStep === "paused" && state.memories.length > 0 ? (
+        <SecondaryLink href="/demo/summary">いままでのまとめを見る</SecondaryLink>
+      ) : null}
+      {state.talkStep === "family_ready" ? (
+        <PrimaryLink href="/demo/procedure">手続きの続きを見る</PrimaryLink>
+      ) : null}
     </div>
   );
 }

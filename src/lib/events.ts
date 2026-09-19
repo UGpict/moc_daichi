@@ -1,3 +1,4 @@
+import { advanceTalkAfterInquiry } from "./conversation";
 import { calculateReferenceCost } from "./cost";
 import { applyInquiryAction, canApplyInquiryAction } from "./inquiry";
 import {
@@ -78,20 +79,20 @@ export function applyDemoEvent(state: DemoState, id: DemoEventId): DemoState {
 
   switch (id) {
     case "receive_first_reply":
-      return {
+      return advanceTalkAfterInquiry({
         ...marked,
         inquiryStatus: applyInquiryAction(state.inquiryStatus, "receive_first"),
         firstReplyDueAt: null,
-      };
+      });
     case "receive_followup_reply":
-      return {
+      return advanceTalkAfterInquiry({
         ...marked,
         inquiryStatus: applyInquiryAction(
           state.inquiryStatus,
           "receive_followup",
         ),
         followupReplyDueAt: null,
-      };
+      });
     case "receive_schedule_offer": {
       const stayDays = scheduleStayDaysAfterOffer();
       const next = {

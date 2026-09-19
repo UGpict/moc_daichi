@@ -66,8 +66,8 @@ export default function EstimatePage() {
       </Notice>
 
       <StickyActions>
-        <PrimaryLink href="/demo/agent">質問を見て、聞いてよいか決める</PrimaryLink>
-        <SecondaryLink href="/demo">準備に戻る</SecondaryLink>
+        <PrimaryLink href="/demo">しるべと話す</PrimaryLink>
+        <SecondaryLink href="/demo/agent">質問文の詳細を見る</SecondaryLink>
       </StickyActions>
     </div>
   );

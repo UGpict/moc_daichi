@@ -51,20 +51,26 @@ export function getShirubeReport(state: DemoState): ShirubeReport {
   if (areAnswersConfirmed(state.inquiryStatus) && state.track === "prep") {
     return {
       message: state.hasViewedFamily
-        ? "子どもに残す一枚の準備ができています。"
-        : "今回の質問の返事が揃いました。子どもに一枚で残せます。",
-      next: "役所の手続きは、必要になったあとで見られます。",
+        ? "家族に残す内容の準備ができています。"
+        : "返事が揃いました。家族に残す内容を確認できます。",
+      next: "私的な相談は、選ばない限り共有しません。",
+    };
+  }
+  if (state.talkStep === "open" || state.talkStep === "clarify_burden") {
+    return {
+      message: "まず、いま気になっていることを一つ聞かせてください。",
+      next: "希望の入力フォームは、最初には並べません。",
     };
   }
   if (!state.hasReviewedEstimate && state.inquiryStatus === "awaiting_approval") {
     return {
-      message: "まず、見積もりの書いていないところを一緒に見ましょう。",
-      next: "希望はここに残してあります。分からない費用は、0円にはしません。",
+      message: "見積もりの書いていないところを、聞いてよいか確認します。",
+      next: "分からない費用は、0円にはしません。",
     };
   }
   return {
-    message: "見積もりの、書いていないところをまとめました。",
-    next: "内容を見て、葬儀社に聞いてよいか決めてください。",
+    message: "話した内容を、家族が使える準備にします。",
+    next: "確認した希望だけを、あとからの提案理由に使います。",
   };
 }
 
