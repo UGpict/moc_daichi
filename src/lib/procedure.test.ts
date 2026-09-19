@@ -66,6 +66,7 @@ describe("procedure and schedule change", () => {
     assert.doesNotMatch(view.prompt, /どんな人に見送ってもらいたい/);
     assert.doesNotMatch(view.prompt, /分かるものはお手元にありますか/);
     assert.equal(view.choices[0]?.id, "report_handover_has_cert");
+    assert.doesNotMatch(view.progress.join("\n"), /火葬日程を確認/);
     assert.equal(getNextAutoEvent(state), "wait_user");
   });
 

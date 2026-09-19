@@ -10,7 +10,6 @@ import {
   DOMICILE_CONSULT_REPLY,
   FUNERAL_HOME,
   LEFTOVER_RECORDS,
-  MUNICIPALITY,
   NAME_MEMO,
   NAME_ON_CERTIFICATE,
   NAME_WILL_HANDLE_BODY,
@@ -72,7 +71,12 @@ export function getProcedureView(state: DemoState): ProcedureView {
   if (state.deathCertificate === "received") {
     progress.push("死亡診断書は受領済みとして記録しています。");
   }
-  if (state.scheduleStatus === "adjusting") {
+  if (
+    state.scheduleStatus === "adjusting" &&
+    state.handoverHeard &&
+    state.nameCheckStatus !== "not_compared" &&
+    state.nameCheckStatus !== "mismatch_found"
+  ) {
     progress.push(
       "葬儀社には火葬日程を確認しています。返事が届いたら、費用への影響もまとめてお知らせします。",
     );
@@ -127,7 +131,7 @@ export function getProcedureView(state: DemoState): ProcedureView {
       ...empty,
       prompt:
         "お母さまは、家族だけでのお見送りを希望され、日程は家族に任せると確認しています。氏名は手掛かりとして「山田 春子」、本籍メモは静岡県葵市さくら町1丁目です。公的書類との照合は、これからします。まず、現在どこまで手配できているか教えてください。",
-      detail: `${MUNICIPALITY.note} 同じ希望は、もう一度聞きません。`,
+      detail: "同じ希望は、もう一度聞きません。",
       choices: [
         { id: "report_handover_has_cert", label: "死亡診断書は受け取った", kind: "primary" },
         { id: "report_handover_none", label: "まだ何も手配していない", kind: "secondary" },
