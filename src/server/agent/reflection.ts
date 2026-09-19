@@ -144,7 +144,11 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
       payload: attempt.data
         ? {
             observations: attempt.data.observations.length,
-            candidates: attempt.data.memoryCandidates.length,
+            candidates: attempt.data.memoryCandidates.map((c) => ({
+              sourceType: c.sourceType,
+              type: c.type,
+              content: c.content.slice(0, 80),
+            })),
             hasClarification: Boolean(attempt.data.clarification),
           }
         : { error: attempt.error },
@@ -189,7 +193,10 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
       };
     }
     for (const c of data.memoryCandidates) {
-      if (c.sourceType === "HYPOTHESIS") continue;
+      const grounded =
+        Boolean(c.evidenceQuote.trim()) &&
+        (masked.includes(c.evidenceQuote.trim()) || masked.includes(c.evidenceQuote.trim().slice(0, 8)));
+      if (c.sourceType === "HYPOTHESIS" && !grounded) continue;
       const cid = newId("mc");
       const candidate: MemoryCandidate = {
         id: cid,
@@ -200,13 +207,14 @@ export async function runReflection(runId: string, signal: AbortSignal): Promise
         subject: c.subject,
         type: c.type,
         content: c.content,
-        sourceType: c.sourceType,
+        sourceType: c.sourceType === "HYPOTHESIS" && grounded ? "OBSERVATION" : c.sourceType,
         evidenceQuote: c.evidenceQuote,
         strength: c.strength,
         scope: c.scope,
         createdAt: realNowIso(),
       };
-      if (!validateMemoryCandidate(candidate).ok) continue;
+      const checked = validateMemoryCandidate(candidate);
+      if (!checked.ok) continue;
       found.couple.memoryCandidates[cid] = candidate;
       storedCandidates.push(candidate);
     }
