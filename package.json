@@ -1,6 +1,6 @@
 {
   "name": "futari-log",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
     "dev": "tsx scripts/dev.ts",
@@ -8,7 +8,7 @@
     "dev:worker": "tsx src/worker/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
-    "test": "tsx --test tests/plan.test.ts tests/privacy.test.ts tests/security.test.ts tests/preference-cards.test.ts tests/digest.test.ts",
+    "test": "tsx --test tests/plan.test.ts tests/privacy.test.ts tests/security.test.ts tests/preference-cards.test.ts tests/digest.test.ts tests/v07.test.ts tests/approvals.test.ts",
     "build": "next build",
     "start": "tsx scripts/start.ts",
     "doctor": "tsx scripts/doctor.ts",
@@ -18,6 +18,8 @@
     "replay:export": "tsx scripts/replay-export.ts"
   },
   "dependencies": {
+    "firebase": "^12.19.0",
+    "firebase-admin": "^14.4.0",
     "lucide-react": "^1.47.0",
     "next": "16.3.5",
     "react": "19.2.8",
@@ -31,6 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "firebase-tools": "^15.30.2",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"

@@ -1,4 +1,5 @@
 import type { Memory, MemoryCandidate } from "@/domain/schemas";
+import { candidateContentHash } from "./validateMemoryCandidate";
 
 export function canReadMemory(memory: Memory, nextSessionId: string): boolean {
   if (!memory.active) return false;
@@ -36,5 +37,8 @@ export function candidateToMemory(input: {
     active: true,
     version: input.version ?? 1,
     supersedes: input.supersedes ?? null,
+    careTarget: input.candidate.careTarget ?? null,
+    careDirection: input.candidate.careDirection ?? null,
+    contentHash: candidateContentHash(input.candidate),
   };
 }

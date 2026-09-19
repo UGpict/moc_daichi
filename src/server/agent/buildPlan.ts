@@ -44,9 +44,12 @@ export async function buildPlan(input: {
   const spots = { ...input.spots };
   const start = tokyoDateTime(input.input.dateTokyo, input.input.startTime);
   const standingCare = input.memories.filter(
-    (m) => m.active && /立|歩/.test(m.content) && m.strength !== undefined,
+    (m) => m.active && m.careTarget === "STANDING" && (m.careDirection === "REDUCE" || m.careDirection === "AVOID"),
   );
-  const restCare = standingCare.length > 0;
+  const restCareMem = input.memories.filter(
+    (m) => m.active && m.careTarget === "REST" && (m.careDirection === "INCREASE" || m.careDirection === "PREFER"),
+  );
+  const restCare = standingCare.length > 0 || restCareMem.length > 0;
 
   const detailsNeeded = input.orderedSpotIds.filter((id) => !spots[id]);
   for (const id of detailsNeeded.slice(0, 6)) {
@@ -89,6 +92,10 @@ export async function buildPlan(input: {
           memoryId: m.id,
           effect: "DURATION",
           detail: `${spot.name} の滞在を短くした`,
+          before: "滞在50分（提案値）",
+          after: "滞在35分（提案値）",
+          reason: `承認済み記憶 ${m.id}（${m.careTarget}/${m.careDirection}）`,
+          evidenceIds: [],
         });
       }
     }
@@ -100,6 +107,10 @@ export async function buildPlan(input: {
           memoryId: m.id,
           effect: "REST_INSERT",
           detail: `${spot.name} を休憩として配置`,
+          before: "休憩なし",
+          after: `${spot.name} を休憩候補に配置`,
+          reason: `承認済み記憶 ${m.id}（${m.careTarget}/${m.careDirection}）`,
+          evidenceIds: [],
         });
       }
     }
@@ -172,9 +183,13 @@ export async function buildPlan(input: {
 
   if (restCare && !items.some((it) => spots[it.spotId]?.restEase.value === "EASY")) {
     influences.push({
-      memoryId: standingCare[0]?.id ?? "unknown",
+      memoryId: standingCare[0]?.id ?? restCareMem[0]?.id ?? "unknown",
       effect: "NONE",
       detail: "休憩候補は行程条件を既に満たすか、候補不足で追加していない",
+      before: null,
+      after: null,
+      reason: "候補不足または既に休憩しやすい場所がある",
+      evidenceIds: [],
     });
   }
   if (standingCare.length && influences.length === 0) {
@@ -182,6 +197,10 @@ export async function buildPlan(input: {
       memoryId: standingCare[0].id,
       effect: "NONE",
       detail: "既に条件を満たしているため変更なし",
+      before: null,
+      after: null,
+      reason: "現行候補で立位負担を増やさない",
+      evidenceIds: [],
     });
   }
 
@@ -325,12 +344,12 @@ export async function buildPlan(input: {
         trigger: "雨・悪天候",
         itemId: item.id,
         candidateSpotId: indoor?.id ?? null,
-        policy: indoor ? null : "発生時に近隣の屋内候補を検索",
-        validation: indoor
-          ? { state: "CONDITIONAL", issues: [] }
-          : null,
-        verifiedAt: indoor ? new Date().toISOString() : null,
-        isVerifiedAlternative: Boolean(indoor),
+        policy: indoor
+          ? "屋内候補があるが、差し替え行程全体の検証前なので未検証"
+          : "発生時に近隣の屋内候補を検索",
+        validation: null,
+        verifiedAt: null,
+        isVerifiedAlternative: false,
       });
     }
   }
@@ -371,6 +390,16 @@ export async function buildPlan(input: {
     },
     dataMode: input.dataMode,
     memoryInfluences: uniqueInfluences(influences),
+    preferenceOutcomes: input.input.preferences.map((pref) => {
+      const hit = items.find((it) => preferenceMatchIds(spots[it.spotId], [pref]).includes(pref.id));
+      return {
+        preferenceId: pref.id,
+        state: hit ? ("SATISFIED" as const) : pref.priority === "MUST" ? ("UNMET" as const) : ("UNKNOWN" as const),
+        spotId: hit?.spotId ?? null,
+        evidenceIds: hit ? [...(spots[hit.spotId]?.environment.evidenceIds ?? [])] : [],
+        note: hit ? `${spots[hit.spotId]?.name} で対応` : "行程上で充足を確認できていない",
+      };
+    }),
   };
   draft.validation = validatePlan(draft, { spots, input: input.input });
   return { plan: draft, spots, evidence };

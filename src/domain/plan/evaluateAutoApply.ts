@@ -1,5 +1,6 @@
 import type { Plan, PlanDiff, AutoApplyPolicy } from "@/domain/schemas";
 import { doneItemsPreserved } from "./validatePlan";
+import { validateTransition } from "@/domain/planning/validateTransition";
 
 export type AutoApplyInput = {
   previous: Plan;
@@ -8,6 +9,7 @@ export type AutoApplyInput = {
   policy: AutoApplyPolicy;
   nowIso: string;
   expectedBaseVersion: number;
+  mustVisitIds?: string[];
 };
 
 export type AutoApplyResult =
@@ -46,6 +48,11 @@ export function evaluateAutoApply(input: AutoApplyInput): AutoApplyResult {
   }
   if (!doneItemsPreserved(previous.items, next.items)) {
     reasons.push("完了済みまたは進行中の滞在が変わっています");
+  }
+  const transition = validateTransition({ previous, next });
+  reasons.push(...transition.reasons);
+  for (const id of input.mustVisitIds ?? []) {
+    if (!next.items.some((i) => i.spotId === id)) reasons.push(`MUST_VISIT ${id} が維持されていません`);
   }
 
   const prevStart = previous.items[0]?.startAt;

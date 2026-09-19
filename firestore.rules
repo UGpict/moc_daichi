@@ -4,20 +4,48 @@ service cloud.firestore {
     function signedIn() {
       return request.auth != null;
     }
-    function isOwner(coupleId) {
-      return signedIn() &&
-        get(/databases/$(database)/documents/couples/$(coupleId)).data.ownerUid == request.auth.uid;
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
     }
 
-    match /couples/{coupleId} {
-      allow read: if isOwner(coupleId);
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if false;
-
-      match /{document=**} {
-        allow read: if isOwner(coupleId);
-        allow write: if false;
-      }
+    match /couples/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /sessions/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /planVersions/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /runs/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /events/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /approvals/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /memories/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /memoryCandidates/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /drafts/{id} {
+      allow read: if isOwner(resource.data.ownerUid);
+      allow write: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

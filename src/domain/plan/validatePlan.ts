@@ -1,3 +1,4 @@
+import { structurePreference, walkingAvoid, walkingLike } from "@/domain/planning/requirements";
 import type {
   Plan,
   PlanItem,
@@ -19,8 +20,18 @@ function issue(
   message: string,
   itemIds: string[] = [],
   evidenceIds: string[] = [],
+  extra: { targetId?: string | null; neededEvidence?: string | null; howToResolve?: string | null } = {},
 ): ValidationIssue {
-  return { code, severity, message, itemIds, evidenceIds };
+  return {
+    code,
+    severity,
+    message,
+    itemIds,
+    evidenceIds,
+    targetId: extra.targetId ?? itemIds[0] ?? null,
+    neededEvidence: extra.neededEvidence ?? null,
+    howToResolve: extra.howToResolve ?? null,
+  };
 }
 
 export function validatePlan(plan: Plan, ctx: PlanContext): ValidationResult {
@@ -109,9 +120,10 @@ export function validatePlan(plan: Plan, ctx: PlanContext): ValidationResult {
         issue(
           "TRAVEL_UNKNOWN",
           "UNKNOWN",
-          "移動時間が未検証です。直線距離では代用していません",
+          "移動時間が未検証です。0分にも直線距離にもしていません",
           [item.id],
           leg.evidenceIds,
+          { neededEvidence: "routes.duration", howToResolve: "Routes API で当該区間を再取得する" },
         ),
       );
     } else {
@@ -160,13 +172,17 @@ export function validatePlan(plan: Plan, ctx: PlanContext): ValidationResult {
     }
   }
 
-  const costMaxes: number[] = [];
-  let costUnknown = false;
+  const mealMaxes: number[] = [];
+  const facilityMaxes: number[] = [];
+  let mealUnknown = false;
+  let facilityUnknown = false;
   for (const item of items) {
     const spot = spots[item.spotId];
     if (!spot) continue;
+    const isMeal = spot.categories.some((c) => /cafe|bakery|restaurant|food/.test(c));
     if (spot.costForTwoJpy.value == null) {
-      costUnknown = true;
+      if (isMeal) mealUnknown = true;
+      else facilityUnknown = true;
       issues.push(
         issue(
           "COST_UNKNOWN",
@@ -174,28 +190,54 @@ export function validatePlan(plan: Plan, ctx: PlanContext): ValidationResult {
           `${spot.name} の二人料金は不明です。予算内とは断定しません`,
           [item.id],
           spot.costForTwoJpy.evidenceIds,
+          { neededEvidence: "places.priceRange", howToResolve: "Place Details の priceRange を取得する。カテゴリから円を作らない" },
         ),
       );
-    } else {
-      costMaxes.push(spot.costForTwoJpy.value.max);
-    }
+    } else if (isMeal) mealMaxes.push(spot.costForTwoJpy.value.max);
+    else facilityMaxes.push(spot.costForTwoJpy.value.max);
   }
-  const budgetTotal =
-    (input.budget.mealsJpy ?? 0) +
-    (input.budget.facilitiesJpy ?? 0) +
-    (input.budget.transitJpy ?? 0);
-  const hasBudget =
-    input.budget.mealsJpy != null ||
-    input.budget.facilitiesJpy != null ||
-    input.budget.transitJpy != null;
-  if (hasBudget && !costUnknown && costMaxes.length > 0) {
-    const sumMax = costMaxes.reduce((a, b) => a + b, 0);
-    if (sumMax > budgetTotal && budgetTotal > 0) {
+  const mealSum = mealMaxes.reduce((a, b) => a + b, 0);
+  const facilitySum = facilityMaxes.reduce((a, b) => a + b, 0);
+  if (input.budget.mealsJpy != null && mealMaxes.length + (mealUnknown ? 1 : 0) > 0) {
+    if (mealSum > input.budget.mealsJpy) {
       issues.push(
         issue(
-          "OVER_BUDGET",
+          "OVER_BUDGET_MEALS",
           "ERROR",
-          `料金上限の合計 ¥${sumMax} が予算 ¥${budgetTotal} を超えます`,
+          `食事の既知上限 ¥${mealSum} が食事予算 ¥${input.budget.mealsJpy} を超えます`,
+          [],
+          [],
+          { howToResolve: "食事候補を替えるか予算を上げる。交通費は含めない" },
+        ),
+      );
+    }
+  }
+  if (input.budget.facilitiesJpy != null && facilityMaxes.length + (facilityUnknown ? 1 : 0) > 0) {
+    if (facilitySum > input.budget.facilitiesJpy) {
+      issues.push(
+        issue(
+          "OVER_BUDGET_FACILITIES",
+          "ERROR",
+          `施設の既知上限 ¥${facilitySum} が施設予算 ¥${input.budget.facilitiesJpy} を超えます`,
+          [],
+          [],
+          { howToResolve: "施設候補を替える。交通費・食事は別枠" },
+        ),
+      );
+    }
+  }
+
+  const mustVisits = (input.selectedSpots ?? []).filter((s) => s.intent === "MUST_VISIT");
+  for (const sel of mustVisits) {
+    if (!items.some((it) => it.spotId === sel.spotId)) {
+      issues.push(
+        issue(
+          "MUST_VISIT_MISSING",
+          "ERROR",
+          `必ず行くスポット「${sel.name}」が行程にありません`,
+          [],
+          [],
+          { targetId: sel.spotId, howToResolve: "順序を変えるか、不成立理由と代替を提示する" },
         ),
       );
     }
@@ -232,10 +274,21 @@ export function validatePlan(plan: Plan, ctx: PlanContext): ValidationResult {
 
   const musts = input.preferences.filter((p) => p.priority === "MUST");
   for (const pref of musts) {
-    const hit = items.some((it) => it.matchesPreferenceIds.includes(pref.id));
-    if (!hit) {
+    const outcomes = items.flatMap((it) => {
+      const spot = spots[it.spotId];
+      if (!spot) return [];
+      return preferenceMatchIds(spot, [pref]).includes(pref.id) ? [it] : [];
+    });
+    if (outcomes.length === 0) {
       issues.push(
-        issue("MUST_UNMET", "ERROR", `必須の希望が満たされていません: ${pref.content}`),
+        issue(
+          "MUST_UNMET",
+          "ERROR",
+          `必須の希望が満たされていません: ${pref.content}`,
+          [],
+          [],
+          { targetId: pref.id, howToResolve: "両立できない場合は質問する。平均点で消さない" },
+        ),
       );
     }
   }
@@ -253,31 +306,35 @@ function tokyoEnd(input: PlanningInput): string {
 
 export function preferenceMatchIds(spot: Spot, prefs: Preference[]): string[] {
   const ids: string[] = [];
-  for (const pref of prefs) {
-    const text = `${spot.name} ${spot.categories.join(" ")}`.toLowerCase();
-    const c = pref.content;
-    const walk = /散歩|歩く|散策|屋外/.test(c);
-    const exhibit = /展示|美術館|博物館|科学館/.test(c);
-    const sweet = /甘い|スイーツ|カフェ|デザート|ケーキ/.test(c);
-    if (walk && (spot.categories.includes("park") || spot.environment.value === "OUTDOOR")) {
+  for (const raw of prefs) {
+    const pref = structurePreference(raw);
+    const outdoorWalk = spot.categories.includes("park") || spot.environment.value === "OUTDOOR";
+    const exhibit =
+      spot.categories.includes("art_gallery") ||
+      spot.categories.includes("museum") ||
+      /美術館|科学館/.test(spot.name);
+    const sweet =
+      spot.categories.includes("cafe") ||
+      spot.categories.includes("bakery") ||
+      /珈琲|カフェ|スイーツ/.test(spot.name);
+
+    if (walkingAvoid(pref) && outdoorWalk) continue;
+    if (pref.polarity === "AVOID" && pref.targetKind === "STANDING" && spot.standingBurden.value === "HIGH") continue;
+    if (walkingLike(pref) && outdoorWalk) {
       ids.push(pref.id);
-    } else if (
-      exhibit &&
-      (spot.categories.includes("art_gallery") ||
-        spot.categories.includes("museum") ||
-        /美術館|科学館/.test(spot.name))
-    ) {
-      ids.push(pref.id);
-    } else if (
-      sweet &&
-      (spot.categories.includes("cafe") ||
-        spot.categories.includes("bakery") ||
-        /珈琲|カフェ|スイーツ/.test(spot.name))
-    ) {
-      ids.push(pref.id);
-    } else if (text.includes(c.toLowerCase())) {
-      ids.push(pref.id);
+      continue;
     }
+    if (pref.polarity === "LIKE" && pref.targetKind === "EXHIBIT" && exhibit) {
+      ids.push(pref.id);
+      continue;
+    }
+    if (pref.polarity === "LIKE" && pref.targetKind === "SWEETS" && sweet) {
+      ids.push(pref.id);
+      continue;
+    }
+    if (pref.polarity === "AVOID") continue;
+    const blob = `${spot.name} ${spot.categories.join(" ")}`.toLowerCase();
+    if (pref.targetKind === "OTHER" && blob.includes(pref.content.toLowerCase())) ids.push(pref.id);
   }
   return ids;
 }

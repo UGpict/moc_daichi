@@ -5,9 +5,11 @@ import { searchCatalog } from "../src/server/providers/catalog";
 import { planningInputSchema } from "../src/domain/schemas";
 
 describe("daily digest", () => {
-  it("keys one catalog per area and Tokyo date", () => {
-    assert.equal(digestKey("名古屋駅周辺", "2026-09-19"), "digest:名古屋駅周辺:2026-09-19");
-    assert.notEqual(digestKey("名古屋駅周辺", "2026-09-19"), digestKey("名古屋駅周辺", "2026-09-20"));
+  it("keys one catalog per areaId, coords, radius, Tokyo date and provider version", () => {
+    const a = digestKey("area:nagoya-station", 35.17092, 136.88154, 2500, "2026-09-19");
+    const b = digestKey("area:nagoya-station", 35.17092, 136.88154, 2500, "2026-09-20");
+    assert.match(a, /^digest:area:nagoya-station:/);
+    assert.notEqual(a, b);
   });
 
   it("treats 催し and イベント as venue-like catalog search in MOCK", () => {

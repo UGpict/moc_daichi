@@ -44,11 +44,16 @@ describe("privacy", () => {
 
 describe("auth token", () => {
   it("rejects tampered token", () => {
+    const prevRuntime = process.env.APP_RUNTIME;
+    const prevSecret = process.env.MOCK_AUTH_SECRET;
+    process.env.APP_RUNTIME = "MOCK";
     process.env.MOCK_AUTH_SECRET = "test-secret";
     const token = signToken("anon_a");
     assert.equal(verifyToken(token), "anon_a");
     assert.equal(verifyToken(token.replace(/[a-f0-9]{4}$/, "ffff")), null);
     assert.equal(verifyToken("other.uid"), null);
+    process.env.APP_RUNTIME = prevRuntime;
+    process.env.MOCK_AUTH_SECRET = prevSecret;
   });
 });
 
@@ -73,6 +78,9 @@ describe("memory scope", () => {
       active: true,
       version: 1,
       supersedes: null,
+      careTarget: "STANDING",
+      careDirection: "REDUCE",
+      contentHash: "x",
     };
     assert.equal(canReadMemory(base, "ses_next"), true);
     assert.equal(canReadMemory(base, "ses_other"), false);

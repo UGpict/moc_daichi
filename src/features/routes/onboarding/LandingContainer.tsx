@@ -8,12 +8,22 @@ import { useAuth } from "@/features/common/auth/AuthContext";
 
 export function LandingContainer() {
   const router = useRouter();
-  const { me, loading, signInGuest } = useAuth();
+  const { me, loading, signInGuest, signInWithGoogle } = useAuth();
 
   async function start() {
     const next = me ?? (await signInGuest());
     const onboarded = window.localStorage.getItem(`futari.onboarded.${next.uid}`);
     router.push(onboarded ? "/today" : "/onboarding");
+  }
+
+  async function google() {
+    try {
+      const next = await signInWithGoogle();
+      const onboarded = window.localStorage.getItem(`futari.onboarded.${next.uid}`);
+      router.push(onboarded ? "/today" : "/onboarding");
+    } catch {
+      await start();
+    }
   }
 
   return (
@@ -27,6 +37,9 @@ export function LandingContainer() {
       <Button className="mt-8 w-full py-3" disabled={loading} onClick={() => void start()}>
         <Heart className="mr-2 h-4 w-4" />
         ゲストではじめる
+      </Button>
+      <Button variant="secondary" className="mt-3 w-full" disabled={loading} onClick={() => void google()}>
+        Googleで続ける（利用できる場合）
       </Button>
       {me?.coupleId ? (
         <Button variant="secondary" className="mt-3 w-full" onClick={() => router.push("/today")}>

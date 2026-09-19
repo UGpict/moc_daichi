@@ -1,4 +1,4 @@
-import { getEnv } from "@/config/env";
+import { getEnv, assertLiveProvider } from "@/config/env";
 import {
   CACHE_TTL_MS,
   PLACES_FIELD_MASK_DETAILS,
@@ -103,7 +103,9 @@ export async function searchSpots(
     ctx.onHttp({ provider: env.runtime === "LIVE" ? "places" : "mock-places", cacheHit: true, attempt: ctx.httpAttempts });
     return cached;
   }
-  if (env.runtime === "LIVE" && env.googleMapsApiKey) {
+  if (env.profile === "LIVE") {
+    assertLiveProvider("places");
+    if (!env.googleMapsApiKey) throw new Error("BLOCKED: GOOGLE_MAPS_API_KEY");
     const result = await counted(ctx, "places", () => liveSearch(env.googleMapsApiKey!, args));
     cacheSet(ctx, key, result);
     return result;
@@ -142,7 +144,8 @@ export async function searchHappenings(
     });
     return cached;
   }
-  if (env.runtime === "LIVE" && env.googleMapsApiKey) {
+  if (env.profile === "LIVE") {
+    assertLiveProvider("places");
     const result = await counted(ctx, "places-text", () => liveSearchText(env.googleMapsApiKey!, args));
     cacheSet(ctx, key, result);
     return result;
@@ -179,7 +182,7 @@ export async function getSpotDetails(
     ctx.onHttp({ provider: "places", cacheHit: true, attempt: ctx.httpAttempts });
     return cached;
   }
-  if (env.runtime === "LIVE" && env.googleMapsApiKey && !args.spotId.startsWith("mock:")) {
+  if (env.profile === "LIVE" && env.googleMapsApiKey && !args.spotId.startsWith("mock:")) {
     const result = await counted(ctx, "places", () => liveDetails(env.googleMapsApiKey!, args.spotId));
     cacheSet(ctx, key, result);
     return result;
@@ -230,9 +233,29 @@ export async function getWeather(
   if (!cached) cacheSet(ctx, key, { ...base, injected: false });
 
   if (overlay) {
-    const mm = Number(overlay.overlay.precipitationMm ?? 8);
+    const mmRaw = overlay.overlay.precipitationMm ?? overlay.overlay.mm;
+    const mm = mmRaw == null ? null : Number(mmRaw);
+    const label = String(overlay.overlay.condition ?? overlay.overlay.weather ?? overlay.overlay.label ?? "");
+    const isRain =
+      (mm != null && Number.isFinite(mm) && mm >= 2) || /rain|雨|shower/i.test(label);
+    if (!isRain) {
+      return {
+        ...base,
+        injected: true,
+        precipitationMm: mm != null && Number.isFinite(mm) ? mm : base.precipitationMm,
+        evidence: evidence({
+          kind: "INJECTED",
+          provider: "scenario",
+          sourceRef: overlay.id,
+          sourceField: "precipitationMm",
+          fetchedAt: realNowIso(),
+          validFor: overlay.target.from && overlay.target.to ? { from: overlay.target.from, to: overlay.target.to } : null,
+          note: `天気注入を評価: rain=${isRain} mm=${mm ?? "n/a"} ${label}。注入があるだけで雨にはしない`,
+        }),
+      };
+    }
     return {
-      precipitationMm: mm,
+      precipitationMm: mm != null && Number.isFinite(mm) ? mm : 8,
       weatherCode: 61,
       injected: true,
       evidence: evidence({
@@ -241,10 +264,8 @@ export async function getWeather(
         sourceRef: overlay.id,
         sourceField: "precipitationMm",
         fetchedAt: realNowIso(),
-        validFor: overlay.target.from && overlay.target.to
-          ? { from: overlay.target.from, to: overlay.target.to }
-          : null,
-        note: "シナリオ注入。監視していない天気を自動検知したわけではない",
+        validFor: overlay.target.from && overlay.target.to ? { from: overlay.target.from, to: overlay.target.to } : null,
+        note: "シナリオ注入の降水を評価した。監視していない天気を自動検知したわけではない",
       }),
     };
   }
@@ -284,17 +305,17 @@ async function liveOrMockWeather(args: { lat: number; lng: number; at: string })
     };
   } catch {
     return {
-      precipitationMm: 0,
-      weatherCode: 1,
+      precipitationMm: null,
+      weatherCode: null,
       injected: false,
       evidence: evidence({
-        kind: "API",
-        provider: "mock-weather",
+        kind: "UNKNOWN",
+        provider: "open-meteo",
         sourceRef: `${args.lat},${args.lng}`,
-        sourceField: "precipitation",
+        sourceField: "hourly.precipitation",
         fetchedAt: realNowIso(),
         validFor: null,
-        note: "Open-Meteo に届かなかったためモック晴天。LIVE合格には使わない",
+        note: "Open-Meteo 失敗。0mmとは断定しない",
       }),
     };
   }
@@ -334,7 +355,8 @@ export async function estimateTravel(
 
   let base = cached;
   if (!base) {
-    if (env.runtime === "LIVE" && env.googleMapsApiKey) {
+    if (env.profile === "LIVE") {
+      assertLiveProvider("routes");
       base = await counted(ctx, "routes", () => liveRoute(env.googleMapsApiKey!, args));
     } else {
       base = await counted(ctx, "mock-routes", async () => {

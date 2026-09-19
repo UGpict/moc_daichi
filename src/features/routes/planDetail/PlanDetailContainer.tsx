@@ -197,6 +197,7 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
               {data.plan.memoryInfluences.map((m) => (
                 <p key={m.memoryId + m.detail} className="mt-1 text-sm">
                   {m.effect}: {m.detail}
+                  {"before" in m && m.before ? `（前: ${String(m.before)} → 後: ${String((m as { after?: string }).after ?? "")}）` : ""}
                 </p>
               ))}
             </Card>
@@ -292,7 +293,7 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
               await post(`/api/sessions/${data.session.id}/progress`, { status: "DONE" });
               await api(`/api/sessions/${data.session.id}/runs`, {
                 method: "POST",
-                body: JSON.stringify({ kind: "REFLECTION" }),
+                body: JSON.stringify({ kind: "REFLECTION", note }),
               });
               await reload();
             }}

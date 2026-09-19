@@ -4,7 +4,7 @@ import { json, requireUid } from "@/server/api/http";
 import { parsePlacesPhotoName } from "@/server/places/photoName";
 
 export async function GET(request: Request) {
-  const auth = requireUid(request);
+  const auth = await requireUid(request);
   if ("error" in auth) return auth.error;
   const url = new URL(request.url);
   const name = parsePlacesPhotoName(url.searchParams.get("name"));

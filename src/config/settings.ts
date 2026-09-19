@@ -1,8 +1,9 @@
 export const APP_NAME = "ふたりログ";
-export const SCHEMA_VERSION = "0.5.0";
-export const PROMPT_VERSION = "0.5.0";
-export const TOOL_VERSION = "0.5.0";
-export const MODEL_SETTINGS_VERSION = "0.5.0";
+export const SCHEMA_VERSION = "0.7.0";
+export const PROMPT_VERSION = "0.7.0";
+export const TOOL_VERSION = "0.7.0";
+export const MODEL_SETTINGS_VERSION = "0.7.0";
+export const PROVIDER_VERSION = "places-new-v1+open-meteo-v1";
 
 export const TIME_ZONE = "Asia/Tokyo";
 
