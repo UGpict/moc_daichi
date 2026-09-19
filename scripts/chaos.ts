@@ -33,6 +33,38 @@ async function portOpen(): Promise<boolean> {
   }
 }
 
+function killDevStack() {
+  const needles = ["next-server", "next dev", "src/worker/index.ts", "scripts/dev.ts"];
+  const self = process.pid;
+  for (const name of readdirSync("/proc")) {
+    if (!/^\d+$/.test(name)) continue;
+    const pid = Number(name);
+    if (pid === self) continue;
+    let cmd = "";
+    try {
+      cmd = readFileSync(`/proc/${pid}/cmdline`, "utf8").replace(/\0/g, " ");
+    } catch {
+      continue;
+    }
+    if (cmd.includes("chaos.ts") || cmd.includes("live-demo.ts")) continue;
+    if (!needles.some((n) => cmd.includes(n))) continue;
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  }
+}
+
+async function freePort() {
+  for (let i = 0; i < 20; i++) {
+    killDevStack();
+    await sleep(400);
+    if (!(await portOpen())) return;
+  }
+  throw new Error("port 3000 still in use after kill");
+}
+
 async function waitForServer() {
   for (let i = 0; i < 90; i++) {
     try {
@@ -70,8 +102,8 @@ async function guestToken(): Promise<string> {
   const setCookie = auth.headers.get("set-cookie") ?? "";
   const fromCookie = setCookie.match(/futari_token=([^;]+)/)?.[1];
   if (fromCookie) return fromCookie;
-  const body = (await auth.json().catch(() => ({}))) as { token?: string };
-  if (!body.token) throw new Error("no guest token");
+  const body = (await auth.json().catch(() => ({}))) as { token?: string; error?: string };
+  if (!body.token) throw new Error(`no guest token HTTP ${auth.status} ${body.error ?? ""}`);
   return body.token;
 }
 
@@ -85,14 +117,13 @@ async function main() {
     if (live) {
       console.log(JSON.stringify({ skippedLiveSessionHttp: true, reason: "chaos のセッション作成は DEV トークン。LIVE では分類・閉店・注入のみ" }));
     }
-    if (!(await portOpen()) && !live) {
+    if (!live) {
+      await freePort();
       child = spawn("npx", ["tsx", "scripts/dev.ts"], {
         stdio: "inherit",
-        env: process.env,
+        env: { ...process.env, APP_RUNTIME: "MOCK", ENABLE_DEMO_CONTROLS: "true" },
         shell: process.platform === "win32",
       });
-    }
-    if (!live) {
       await waitForServer();
       const token = await guestToken();
 
