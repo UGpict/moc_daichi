@@ -10,26 +10,37 @@ import {
   type ReactNode,
 } from "react";
 import {
+  applyDemoUserAction,
   getDemoReadyServerSnapshot,
   getDemoReadySnapshot,
   getDemoServerSnapshot,
   getDemoSnapshot,
   hydrateDemoStore,
+  markEstimateReviewedStore,
+  markFamilyViewedStore,
   resetDemoStore,
+  setAutoPlay,
+  setConditionsStore,
+  startPrepStore,
+  startProcedureStore,
   subscribeDemoStore,
-  updateDemoStore,
+  triggerDemoEvent,
 } from "@/lib/demo-store";
-import { applyInquiryAction, canApplyInquiryAction } from "@/lib/inquiry";
+import { dueExternalEvent, getNextAutoEvent } from "@/lib/events";
 import { REPLY_DELAY_MS } from "@/lib/sample-data";
-import type { CostConditions, DemoState } from "@/lib/types";
+import type { CostConditions, DemoEventId, DemoState, UserActionId } from "@/lib/types";
 
 interface DemoContextValue {
   state: DemoState;
   ready: boolean;
   markEstimateReviewed: () => void;
   markFamilyViewed: () => void;
-  approveInquiry: () => void;
-  approveFollowup: () => void;
+  applyAction: (action: UserActionId) => void;
+  triggerEvent: (id: DemoEventId) => void;
+  startPrep: () => void;
+  startProcedure: (fromCurrent?: boolean) => void;
+  startAutoPlay: () => void;
+  stopAutoPlay: () => void;
   updateConditions: (patch: Partial<CostConditions>) => void;
   resetDemo: () => void;
 }
@@ -57,93 +68,74 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (state.inquiryStatus === "awaiting_first_reply") {
-      const wait = Math.max(0, (state.firstReplyDueAt ?? 0) - Date.now());
-      const timer = window.setTimeout(() => {
-        updateDemoStore((current) => {
-          if (!canApplyInquiryAction(current.inquiryStatus, "receive_first")) {
-            return current;
-          }
-          return {
-            ...current,
-            inquiryStatus: applyInquiryAction(current.inquiryStatus, "receive_first"),
-          };
-        });
-      }, wait);
+    const due = dueExternalEvent(state);
+    if (due) {
+      const timer = window.setTimeout(() => triggerDemoEvent(due), 0);
       return () => window.clearTimeout(timer);
     }
 
-    if (state.inquiryStatus === "awaiting_followup_reply") {
-      const wait = Math.max(0, (state.followupReplyDueAt ?? 0) - Date.now());
-      const timer = window.setTimeout(() => {
-        updateDemoStore((current) => {
-          if (!canApplyInquiryAction(current.inquiryStatus, "receive_followup")) {
-            return current;
-          }
-          return {
-            ...current,
-            inquiryStatus: applyInquiryAction(
-              current.inquiryStatus,
-              "receive_followup",
-            ),
-          };
-        });
-      }, wait);
-      return () => window.clearTimeout(timer);
+    if (!state.autoPlay) {
+      return;
     }
+
+    const next = getNextAutoEvent(state);
+    if (next === "wait_user" || next === null) {
+      if (state.autoPlay) {
+        setAutoPlay(false);
+      }
+      return;
+    }
+
+    const wait = Math.max(0, (state.nextAutoAt ?? Date.now()) - Date.now());
+    const timer = window.setTimeout(() => {
+      triggerDemoEvent(next);
+      setAutoPlay(true);
+    }, wait);
+    return () => window.clearTimeout(timer);
   }, [
     ready,
+    state,
+    state.autoPlay,
+    state.nextAutoAt,
     state.inquiryStatus,
     state.firstReplyDueAt,
     state.followupReplyDueAt,
   ]);
 
   const markEstimateReviewed = useCallback(() => {
-    updateDemoStore((current) =>
-      current.hasReviewedEstimate
-        ? current
-        : { ...current, hasReviewedEstimate: true },
-    );
+    markEstimateReviewedStore();
   }, []);
 
   const markFamilyViewed = useCallback(() => {
-    updateDemoStore((current) =>
-      current.hasViewedFamily ? current : { ...current, hasViewedFamily: true },
-    );
+    markFamilyViewedStore();
   }, []);
 
-  const approveInquiry = useCallback(() => {
-    updateDemoStore((current) => {
-      if (!canApplyInquiryAction(current.inquiryStatus, "approve")) {
-        return current;
-      }
-      return {
-        ...current,
-        hasReviewedEstimate: true,
-        inquiryStatus: applyInquiryAction(current.inquiryStatus, "approve"),
-        firstReplyDueAt: Date.now() + REPLY_DELAY_MS,
-      };
-    });
+  const applyAction = useCallback((action: UserActionId) => {
+    applyDemoUserAction(action);
   }, []);
 
-  const approveFollowup = useCallback(() => {
-    updateDemoStore((current) => {
-      if (!canApplyInquiryAction(current.inquiryStatus, "approve_followup")) {
-        return current;
-      }
-      return {
-        ...current,
-        inquiryStatus: applyInquiryAction(current.inquiryStatus, "approve_followup"),
-        followupReplyDueAt: Date.now() + REPLY_DELAY_MS,
-      };
-    });
+  const triggerEvent = useCallback((id: DemoEventId) => {
+    triggerDemoEvent(id);
+  }, []);
+
+  const startPrep = useCallback(() => {
+    startPrepStore();
+  }, []);
+
+  const startProcedure = useCallback((fromCurrent = false) => {
+    startProcedureStore(fromCurrent);
+  }, []);
+
+  const startAutoPlay = useCallback(() => {
+    setAutoPlay(true);
+  }, []);
+
+  const stopAutoPlay = useCallback(() => {
+    setAutoPlay(false);
   }, []);
 
   const updateConditions = useCallback((patch: Partial<CostConditions>) => {
-    updateDemoStore((current) => ({
-      ...current,
-      conditions: { ...current.conditions, ...patch },
-    }));
+    setConditionsStore(patch);
   }, []);
 
   const resetDemo = useCallback(() => {
@@ -156,8 +148,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       ready,
       markEstimateReviewed,
       markFamilyViewed,
-      approveInquiry,
-      approveFollowup,
+      applyAction,
+      triggerEvent,
+      startPrep,
+      startProcedure,
+      startAutoPlay,
+      stopAutoPlay,
       updateConditions,
       resetDemo,
     }),
@@ -166,8 +162,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       ready,
       markEstimateReviewed,
       markFamilyViewed,
-      approveInquiry,
-      approveFollowup,
+      applyAction,
+      triggerEvent,
+      startPrep,
+      startProcedure,
+      startAutoPlay,
+      stopAutoPlay,
       updateConditions,
       resetDemo,
     ],
@@ -191,3 +191,5 @@ export function useDemo() {
   }
   return context;
 }
+
+export const AUTO_STEP_MS = REPLY_DELAY_MS;

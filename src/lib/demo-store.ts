@@ -1,10 +1,22 @@
 import {
+  applyDemoEvent,
+  applyUserAction,
+  canApplyEvent,
+  canApplyUserAction,
+} from "@/lib/events";
+import {
+  beginProcedureFromPrep,
+  createPrepStartState,
+  createProcedureStartState,
+} from "@/lib/procedure";
+import { REPLY_DELAY_MS } from "@/lib/sample-data";
+import {
   clearDemoState,
   createInitialDemoState,
   loadDemoState,
   saveDemoState,
 } from "@/lib/storage";
-import type { DemoState } from "@/lib/types";
+import type { CostConditions, DemoEventId, DemoState, UserActionId } from "@/lib/types";
 
 const listeners = new Set<() => void>();
 const serverSnapshot = createInitialDemoState();
@@ -40,11 +52,16 @@ export function getDemoReadyServerSnapshot() {
   return false;
 }
 
+function commit(next: DemoState) {
+  snapshot = next;
+  saveDemoState(snapshot);
+  emit();
+}
+
 export function hydrateDemoStore() {
   if (hydrated) {
     return;
   }
-
   const stored = loadDemoState();
   snapshot = stored ?? createInitialDemoState();
   hydrated = true;
@@ -56,10 +73,7 @@ export function updateDemoStore(updater: (current: DemoState) => DemoState) {
   if (next === snapshot) {
     return;
   }
-
-  snapshot = next;
-  saveDemoState(snapshot);
-  emit();
+  commit(next);
 }
 
 export function resetDemoStore() {
@@ -67,4 +81,65 @@ export function resetDemoStore() {
   snapshot = createInitialDemoState();
   hydrated = true;
   emit();
+}
+
+export function startPrepStore() {
+  commit({ ...createPrepStartState(), autoPlay: false, nextAutoAt: null });
+}
+
+export function startProcedureStore(fromCurrent = false) {
+  const next = fromCurrent
+    ? beginProcedureFromPrep(snapshot)
+    : createProcedureStartState();
+  commit({ ...next, autoPlay: false, nextAutoAt: null });
+}
+
+export function triggerDemoEvent(id: DemoEventId) {
+  if (!canApplyEvent(snapshot, id)) {
+    return;
+  }
+  commit(applyDemoEvent(snapshot, id));
+}
+
+export function applyDemoUserAction(action: UserActionId) {
+  if (!canApplyUserAction(snapshot, action)) {
+    return;
+  }
+  commit(applyUserAction(snapshot, action));
+}
+
+export function setAutoPlay(running: boolean) {
+  const nextAutoAt = running ? Date.now() + REPLY_DELAY_MS : null;
+  if (snapshot.autoPlay === running && snapshot.nextAutoAt === nextAutoAt) {
+    return;
+  }
+  if (!running && !snapshot.autoPlay && snapshot.nextAutoAt === null) {
+    return;
+  }
+  commit({
+    ...snapshot,
+    autoPlay: running,
+    nextAutoAt,
+  });
+}
+
+export function setConditionsStore(patch: Partial<CostConditions>) {
+  commit({
+    ...snapshot,
+    conditions: { ...snapshot.conditions, ...patch },
+  });
+}
+
+export function markEstimateReviewedStore() {
+  if (snapshot.hasReviewedEstimate) {
+    return;
+  }
+  commit({ ...snapshot, hasReviewedEstimate: true });
+}
+
+export function markFamilyViewedStore() {
+  if (snapshot.hasViewedFamily) {
+    return;
+  }
+  commit({ ...snapshot, hasViewedFamily: true });
 }

@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Signpost } from "lucide-react";
 import { useDemo } from "@/components/demo-provider";
+import { ShirubeAvatar } from "@/components/shirube-avatar";
 
 const titles: Record<string, string> = {
-  "/demo": "準備ホーム",
+  "/demo": "案件ホーム",
   "/demo/estimate": "見積もりの確認",
   "/demo/agent": "葬儀社への問い合わせ",
   "/demo/summary": "費用と準備書",
   "/demo/family": "家族向けの準備書",
+  "/demo/procedure": "引継ぎと手続き",
 };
 
 export function DemoHeader() {
@@ -21,17 +22,17 @@ export function DemoHeader() {
 
   function handleReset() {
     resetDemo();
-    router.push("/demo");
+    router.push("/");
   }
 
   return (
     <header className="border-b border-line bg-card">
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
         <Link
           href="/demo"
           className="flex min-h-11 min-w-11 items-center gap-2 text-forest"
         >
-          <Signpost className="h-5 w-5 shrink-0" aria-hidden />
+          <ShirubeAvatar size={28} />
           <span className="text-base font-semibold tracking-wide">SougiAgent</span>
         </Link>
         <p className="hidden min-w-0 truncate text-sm text-ink-soft sm:block">

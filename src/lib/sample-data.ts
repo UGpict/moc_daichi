@@ -1,4 +1,10 @@
-import type { CheckItemId, CostConditions, DemoState } from "./types";
+import type {
+  CaseInquiry,
+  CheckItemId,
+  CostConditions,
+  DemoState,
+  PermitFlags,
+} from "./types";
 
 export const CONFIRMATION_DATE = "2026年4月12日";
 
@@ -52,14 +58,64 @@ export const DEFAULT_CONDITIONS: CostConditions = {
   nightTransport: false,
 };
 
+export const CREMATION_FIRST_DATE = "2026年4月16日";
+export const CREMATION_NEXT_DATE = "2026年4月17日";
+export const CREMATORY_NAME = "葵斎場（架空）";
+
+export const ROLES = {
+  notifier: {
+    label: "届出人",
+    name: "山田 健一（子ども）",
+    note: "死亡届に名前を書く人です。",
+  },
+  bearer: {
+    label: "窓口への持参者",
+    name: "葵セレモニー 佐藤（仮名）",
+    note: "書類を自治体窓口へ持っていく人です。届出人とは別です。",
+  },
+  permitApplicant: {
+    label: "火葬許可申請者",
+    name: "山田 健一（子ども）",
+    note: "火葬許可申請の名義です。持参者とは限りません。",
+  },
+};
+
+export const EMPTY_CASE_INQUIRY: CaseInquiry = {
+  received: false,
+  checkApproved: false,
+  checkSent: false,
+  staffWillHandle: false,
+  staffCompleted: false,
+  municipalityVerified: false,
+};
+
+export const EMPTY_PERMIT: PermitFlags = {
+  issued: false,
+  received: false,
+  handedOver: false,
+};
+
 export const DEFAULT_DEMO_STATE: DemoState = {
-  version: 1,
+  version: 2,
+  track: "prep",
   inquiryStatus: "awaiting_approval",
   conditions: DEFAULT_CONDITIONS,
-  hasReviewedEstimate: false,
+  hasReviewedEstimate: true,
   hasViewedFamily: false,
   firstReplyDueAt: null,
   followupReplyDueAt: null,
+  deathCertificate: "unchecked",
+  domicileStatus: "unknown",
+  scheduleStatus: "not_started",
+  originalCremationDate: CREMATION_FIRST_DATE,
+  proposedCremationDate: CREMATION_FIRST_DATE,
+  applicationCremationDate: CREMATION_FIRST_DATE,
+  formStatus: "not_started",
+  caseInquiry: { ...EMPTY_CASE_INQUIRY },
+  permit: { ...EMPTY_PERMIT },
+  autoPlay: false,
+  nextAutoAt: null,
+  appliedEventIds: [],
 };
 
 export const REPLY_DELAY_MS = 1000;
@@ -136,3 +192,41 @@ export const FAMILY_FIRST_STEPS = [
   "日程が見えたら、葵セレモニー（架空）に空きと最新の料金を確認する",
   "実際の安置日数と搬送距離で、参考額を見直す",
 ];
+
+export const SCHEDULE_OFFER_BODY =
+  "当初の候補枠は取れず、翌日なら予約可能です。安置は5日になる想定です。";
+
+export const SCHEDULE_CONFIRM_BODY =
+  "翌日の枠で予約を確保しました。安置は5日の想定です。契約手続きは別途ご案内します。";
+
+export const SCHEDULE_ADJUST_REQUEST =
+  "翌日の枠で調整をお願いします。安置5日の費用と、申請書案の火葬日もあわせて確認してください。";
+
+export const MUNICIPALITY_INQUIRY_BODY =
+  "申請書の火葬場名と予約内容の確認が必要です。";
+
+export const MUNICIPALITY_CHECK_REQUEST =
+  "自治体から、申請書の火葬場名と予約内容の確認照会が届きました。予約内容と申請書案を照合し、結果を共有してください。";
+
+export const STAFF_WILL_HANDLE_BODY = "対応します。";
+
+export const STAFF_COMPLETED_BODY =
+  "火葬場名と予約内容を申請書と照合し、修正内容を窓口へ共有しました。";
+
+export const MUNICIPALITY_VERIFIED_BODY =
+  "申請内容を確認できました。交付の連絡は別途行います。";
+
+export const PERMIT_ISSUED_BODY = "火葬許可証を交付しました。";
+export const PERMIT_RECEIVED_BODY = "火葬許可証を受領しました。";
+export const PERMIT_HANDOVER_BODY = "火葬場へ火葬許可証を引き渡しました。";
+
+export const FAMILY_DOMICILE_REPLY =
+  "本籍は戸籍で確認します。申請書の本籍欄は、謄本が届いてから追記します。";
+
+export const PERMIT_CARD = {
+  title: "火葬許可証（デモ・無効）",
+  number: "DEMO-0001",
+  deceased: FAMILY.principal,
+  crematory: CREMATORY_NAME,
+  warning: "このカードは体験用であり、許可証としての効力はありません。",
+};

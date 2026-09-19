@@ -57,9 +57,9 @@ describe("inquiry state transitions", () => {
   it("keeps the home CTA aligned with the current inquiry stage", () => {
     const initial = createInitialDemoState();
     const start = getDemoProgress(initial);
-    assert.equal(start.ctaHref, "/demo/estimate");
-    assert.equal(start.ctaLabel, "見積もりを確認する");
-    assert.match(start.headline, /見積もりに含まれる費用/);
+    assert.equal(start.ctaHref, "/demo/agent");
+    assert.equal(start.ctaLabel, "質問内容を確認する");
+    assert.match(start.headline, /不明点を葬儀社に確認/);
 
     const reviewed = getDemoProgress({ ...initial, hasReviewedEstimate: true });
     assert.equal(reviewed.ctaHref, "/demo/agent");
