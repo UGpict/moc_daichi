@@ -90,25 +90,25 @@ export function getShirubeReport(state: DemoState): ShirubeReport {
   if (state.inquiryStatus === "awaiting_followup_approval") {
     return {
       message:
-        "お返事は届きましたが、金額はまだ分かりません。もう一度確認してもよいですか？",
-      next: "搬送費が『距離や状況による』だけでは、参考額を計算できません。",
+        "返事は届きましたが、搬送の追加料金はまだ分かりません。もう一度聞いてよいですか？",
+      next: "『距離や状況による』だけでは、いくらかかるか計算できません。",
     };
   }
   if (isWaitingForReply(state.inquiryStatus)) {
     return {
-      message: "葬儀社へ確認の問い合わせを送りました。",
-      next: "返信が届くまで待ちます。実際の送信は行っていません。",
+      message: "葬儀社に聞きました。返事を待ちましょう。",
+      next: "実際の送信は行っていません。",
     };
   }
   if (areAnswersConfirmed(state.inquiryStatus) && state.track === "prep") {
     return {
-      message: "今回の質問4件に回答が揃いました。希望と参考額を家族に残せます。",
-      next: "必要になったときの手続きデモへ進むこともできます。",
+      message: "今回の質問の返事が揃いました。子どもに一枚で残せます。",
+      next: "役所の手続きは、必要になったあとで見られます。",
     };
   }
   return {
-    message: "追加料金の条件が書かれていません。確認する質問をまとめました。",
-    next: "外部への問い合わせだけ、内容を見て承認してください。",
+    message: "見積もりの、書いていないところをまとめました。",
+    next: "内容を見て、葬儀社に聞いてよいか決めてください。",
   };
 }
 
@@ -117,14 +117,14 @@ export function getApprovals(state: DemoState): ApprovalItem[] {
   if (state.inquiryStatus === "awaiting_approval") {
     items.push({
       id: "approve_inquiry",
-      label: "この内容で問い合わせる（デモ）",
+      label: "この内容で聞いてよい",
       href: "/demo/agent",
     });
   }
   if (state.inquiryStatus === "awaiting_followup_approval") {
     items.push({
       id: "approve_followup",
-      label: "再質問する（デモ）",
+      label: "もう一度聞いてよい",
       href: "/demo/agent",
     });
   }

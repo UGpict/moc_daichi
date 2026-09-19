@@ -123,29 +123,29 @@ export function getDemoProgress(state: DemoState): {
   const steps: ProgressStep[] = [
     {
       id: "wishes",
-      label: "希望を整理",
+      label: "希望を見る",
       status: "done",
       statusLabel: "確認済み",
     },
     {
       id: "estimate",
-      label: "見積もりを確認",
+      label: "見積もりの分からないところ",
       status: estimateDone ? "done" : "current",
       statusLabel: estimateDone ? "確認済み" : "未確認",
     },
     {
       id: "inquiry",
-      label: "不明点を問い合わせ",
+      label: "聞いてよいか確認",
       status: inquiryDone ? "done" : estimateDone ? "current" : "todo",
       statusLabel: inquiryDone
         ? "確認済み"
         : inquiryStarted
-          ? "回答待ち"
+          ? "返事待ち"
           : "未確認",
     },
     {
       id: "family",
-      label: "家族に共有",
+      label: "子どもに一枚残す",
       status: familyDone ? "done" : confirmed ? "current" : "todo",
       statusLabel: familyDone ? "確認済み" : confirmed ? "未確認" : "未確認",
     },
@@ -154,8 +154,8 @@ export function getDemoProgress(state: DemoState): {
   if (!estimateDone) {
     return {
       steps,
-      headline: "見積もりに含まれる費用を確認しましょう",
-      ctaLabel: "見積もりを確認する",
+      headline: "見積もりの、書いていないところを見てみましょう",
+      ctaLabel: "見積もりを見る",
       ctaHref: "/demo/estimate",
     };
   }
@@ -163,8 +163,8 @@ export function getDemoProgress(state: DemoState): {
   if (inquiryStatus === "awaiting_approval") {
     return {
       steps,
-      headline: "見積もりの不明点を葬儀社に確認しましょう",
-      ctaLabel: "質問内容を確認する",
+      headline: "見積もりの分からないところを、葬儀社に聞いてよいですか",
+      ctaLabel: "質問を見て決める",
       ctaHref: "/demo/agent",
     };
   }
@@ -172,8 +172,8 @@ export function getDemoProgress(state: DemoState): {
   if (inquiryStatus === "awaiting_followup_approval") {
     return {
       steps,
-      headline: "返信が届きました。搬送の追加料金は、まだ確認が必要です",
-      ctaLabel: "返信を確認する",
+      headline: "返事は届きました。まだ分からないことがあります",
+      ctaLabel: "もう一度聞いてよいか見る",
       ctaHref: "/demo/agent",
     };
   }
@@ -181,8 +181,8 @@ export function getDemoProgress(state: DemoState): {
   if (isWaitingForReply(inquiryStatus)) {
     return {
       steps,
-      headline: "葬儀社からの返信を確認しましょう",
-      ctaLabel: "返信を確認する",
+      headline: "葬儀社からの返事を待ちましょう",
+      ctaLabel: "返事を見る",
       ctaHref: "/demo/agent",
     };
   }
@@ -190,16 +190,16 @@ export function getDemoProgress(state: DemoState): {
   if (hasViewedFamily) {
     return {
       steps,
-      headline: "確認できた条件を、家族が読める準備書に残せています",
-      ctaLabel: "家族向けの準備書を見る",
+      headline: "子どもに残す一枚の準備ができています",
+      ctaLabel: "家族が見る画面を開く",
       ctaHref: "/demo/family",
     };
   }
 
   return {
     steps,
-    headline: "確認できた条件を家族に残しましょう",
-    ctaLabel: "家族向けの準備書を見る",
+    headline: "分かったことを、子どもに一枚で残しましょう",
+    ctaLabel: "子どもに残す一枚を見る",
     ctaHref: "/demo/summary",
   };
 }

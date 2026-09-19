@@ -57,20 +57,21 @@ describe("inquiry state transitions", () => {
   it("keeps the home CTA aligned with the current inquiry stage", () => {
     const initial = createInitialDemoState();
     const start = getDemoProgress(initial);
-    assert.equal(start.ctaHref, "/demo/agent");
-    assert.equal(start.ctaLabel, "質問内容を確認する");
-    assert.match(start.headline, /不明点を葬儀社に確認/);
+    assert.equal(start.ctaHref, "/demo/estimate");
+    assert.equal(start.ctaLabel, "見積もりを見る");
+    assert.match(start.headline, /書いていないところ/);
 
     const reviewed = getDemoProgress({ ...initial, hasReviewedEstimate: true });
     assert.equal(reviewed.ctaHref, "/demo/agent");
-    assert.equal(reviewed.ctaLabel, "質問内容を確認する");
+    assert.equal(reviewed.ctaLabel, "質問を見て決める");
+    assert.match(reviewed.headline, /聞いてよいですか/);
 
     const waiting = getDemoProgress({
       ...initial,
       hasReviewedEstimate: true,
       inquiryStatus: "awaiting_first_reply",
     });
-    assert.equal(waiting.ctaLabel, "返信を確認する");
+    assert.equal(waiting.ctaLabel, "返事を見る");
     assert.equal(hasSentFirstInquiry("awaiting_first_reply"), true);
     assert.equal(hasReceivedFirstReply("awaiting_first_reply"), false);
 
@@ -80,7 +81,7 @@ describe("inquiry state transitions", () => {
       inquiryStatus: "awaiting_followup_approval",
     });
     assert.equal(needsFollowup.ctaHref, "/demo/agent");
-    assert.match(needsFollowup.headline, /搬送の追加料金/);
+    assert.match(needsFollowup.headline, /まだ分からない/);
 
     const confirmed = getDemoProgress({
       ...initial,
@@ -88,6 +89,6 @@ describe("inquiry state transitions", () => {
       inquiryStatus: "answers_confirmed",
     });
     assert.equal(confirmed.ctaHref, "/demo/summary");
-    assert.equal(confirmed.ctaLabel, "家族向けの準備書を見る");
+    assert.equal(confirmed.ctaLabel, "子どもに残す一枚を見る");
   });
 });

@@ -13,7 +13,7 @@ const notoSansJp = Noto_Sans_JP({
 export const metadata: Metadata = {
   title: "SougiAgent｜葬儀の事前準備",
   description:
-    "葬儀の見積もりの分からないところを確認し、希望と費用を家族に残す体験版です。",
+    "見積もりの分からないところを確認し、希望を子どもに一枚で残す体験版です。",
 };
 
 export const viewport: Viewport = {

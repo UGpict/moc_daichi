@@ -100,7 +100,7 @@ export const DEFAULT_DEMO_STATE: DemoState = {
   track: "prep",
   inquiryStatus: "awaiting_approval",
   conditions: DEFAULT_CONDITIONS,
-  hasReviewedEstimate: true,
+  hasReviewedEstimate: false,
   hasViewedFamily: false,
   firstReplyDueAt: null,
   followupReplyDueAt: null,
