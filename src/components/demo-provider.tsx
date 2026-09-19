@@ -11,6 +11,9 @@ import {
 } from "react";
 import {
   applyDemoUserAction,
+  applySummaryStore,
+  applyTalkStore,
+  completeShareStore,
   getDemoReadyServerSnapshot,
   getDemoReadySnapshot,
   getDemoServerSnapshot,
@@ -24,11 +27,20 @@ import {
   startPrepStore,
   startProcedureStore,
   subscribeDemoStore,
+  switchToFamilyStore,
   triggerDemoEvent,
+  updateShareStore,
 } from "@/lib/demo-store";
 import { getNextAutoEvent } from "@/lib/events";
 import { REPLY_DELAY_MS } from "@/lib/sample-data";
-import type { CostConditions, DemoEventId, DemoState, UserActionId } from "@/lib/types";
+import type {
+  CostConditions,
+  DemoEventId,
+  DemoState,
+  ShareSelection,
+  SummaryDecision,
+  UserActionId,
+} from "@/lib/types";
 
 interface DemoContextValue {
   state: DemoState;
@@ -43,6 +55,11 @@ interface DemoContextValue {
   stopAutoPlay: () => void;
   updateConditions: (patch: Partial<CostConditions>) => void;
   resetDemo: () => void;
+  applyTalk: (input: string) => DemoState;
+  applySummary: (decision: Exclude<SummaryDecision, "undecided"> | "correct") => DemoState;
+  updateShare: (patch: Partial<ShareSelection>) => void;
+  completeShare: () => DemoState;
+  switchToFamily: () => DemoState;
 }
 
 const DemoContext = createContext<DemoContextValue | null>(null);
@@ -140,6 +157,26 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     resetDemoStore();
   }, []);
 
+  const applyTalk = useCallback((input: string) => {
+    return applyTalkStore(input);
+  }, []);
+
+  const applySummary = useCallback((decision: Exclude<SummaryDecision, "undecided"> | "correct") => {
+    return applySummaryStore(decision);
+  }, []);
+
+  const updateShare = useCallback((patch: Partial<ShareSelection>) => {
+    updateShareStore(patch);
+  }, []);
+
+  const completeShare = useCallback(() => {
+    return completeShareStore();
+  }, []);
+
+  const switchToFamily = useCallback(() => {
+    return switchToFamilyStore();
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
@@ -154,6 +191,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       stopAutoPlay,
       updateConditions,
       resetDemo,
+      applyTalk,
+      applySummary,
+      updateShare,
+      completeShare,
+      switchToFamily,
     }),
     [
       state,
@@ -168,6 +210,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       stopAutoPlay,
       updateConditions,
       resetDemo,
+      applyTalk,
+      applySummary,
+      updateShare,
+      completeShare,
+      switchToFamily,
     ],
   );
 

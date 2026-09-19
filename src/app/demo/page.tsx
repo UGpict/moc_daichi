@@ -1,52 +1,43 @@
 "use client";
 
-import { ProgressSteps } from "@/components/progress-steps";
+import { useEffect, useState } from "react";
+import { EvidenceDialog } from "@/components/evidence-dialog";
+import { FamilyNav } from "@/components/family-nav";
+import { ProcedureConcierge } from "@/components/procedure-concierge";
 import { useDemo } from "@/components/demo-provider";
-import { Card, PageTitle, PrimaryLink, SecondaryLink } from "@/components/ui";
-import { formatYen } from "@/lib/format";
-import { getDemoProgress } from "@/lib/inquiry";
-import { FAMILY, FUNERAL_HOME, WISHES } from "@/lib/sample-data";
+import { Notice, PageTitle } from "@/components/ui";
+import { MUNICIPALITY } from "@/lib/sample-data";
+import type { EvidenceId } from "@/lib/types";
 
-export default function DemoHomePage() {
-  const { state } = useDemo();
-  const progress = getDemoProgress(state);
+export default function ConsultPage() {
+  const { state, ready, applyAction, startProcedure } = useDemo();
+  const [evidence, setEvidence] = useState<EvidenceId | null>(null);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+    if (state.track !== "procedure") {
+      startProcedure(false);
+    }
+  }, [ready, state.track, startProcedure]);
+
+  if (!ready || state.track !== "procedure") {
+    return <p className="text-lg text-ink-soft">手続きの準備を読み込んでいます…</p>;
+  }
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <PageTitle eyebrow="ご自身の準備">いま確認すること</PageTitle>
-      <p className="text-lg leading-relaxed text-ink-soft">
-        難しい手続きは、あとからです。いまは希望と、見積もりの分からないところだけ見ます。
-      </p>
-
-      <Card>
-        <h2 className="text-xl font-semibold">{FAMILY.principal}さんの希望</h2>
-        <p className="mt-3 text-lg">{WISHES.style}</p>
-        <p className="mt-1 text-lg text-ink-soft">
-          予算の目安 {formatYen(WISHES.budgetYen)}
-        </p>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-lg">
-          {WISHES.values.map((value) => (
-            <li key={value}>{value}</li>
-          ))}
-        </ul>
-        <p className="mt-4 text-base text-ink-soft">
-          見積書は{FUNERAL_HOME.name}（{FUNERAL_HOME.fictionalNote}）1社分です。
-        </p>
-      </Card>
-
-      <Card>
-        <h2 className="text-xl font-semibold">進み方</h2>
-        <div className="mt-4">
-          <ProgressSteps steps={progress.steps} />
-        </div>
-      </Card>
-
-      <div className="flex flex-col gap-2">
-        <PrimaryLink href={progress.ctaHref}>{progress.ctaLabel}</PrimaryLink>
-        {state.track === "procedure" ? (
-          <SecondaryLink href="/demo/procedure">手続きの続きを見る</SecondaryLink>
-        ) : null}
-      </div>
+      <PageTitle eyebrow="しるべに相談する">いま必要なことだけ確認します</PageTitle>
+      <Notice>{MUNICIPALITY.note}</Notice>
+      <ProcedureConcierge
+        state={state}
+        onAction={applyAction}
+        onStart={() => startProcedure(false)}
+        onOpenEvidence={setEvidence}
+      />
+      <FamilyNav />
+      <EvidenceDialog id={evidence} state={state} onClose={() => setEvidence(null)} />
     </div>
   );
 }

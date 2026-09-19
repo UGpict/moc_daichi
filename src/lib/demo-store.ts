@@ -1,4 +1,12 @@
 import {
+  applySharePatch,
+  applySummaryDecision,
+  applyTalkInput,
+  completeShare,
+  switchToFamilyView,
+  talkInputUserAction,
+} from "@/lib/conversation";
+import {
   applyDemoEvent,
   applyUserAction,
   canApplyEvent,
@@ -17,7 +25,14 @@ import {
   loadDemoState,
   saveDemoState,
 } from "@/lib/storage";
-import type { CostConditions, DemoEventId, DemoState, UserActionId } from "@/lib/types";
+import type {
+  CostConditions,
+  DemoEventId,
+  DemoState,
+  ShareSelection,
+  SummaryDecision,
+  UserActionId,
+} from "@/lib/types";
 
 const listeners = new Set<() => void>();
 const serverSnapshot = createInitialDemoState();
@@ -156,4 +171,44 @@ export function markFamilyViewedStore() {
     return;
   }
   commit({ ...snapshot, hasViewedFamily: true });
+}
+
+export function applyTalkStore(input: string): DemoState {
+  const action = talkInputUserAction(snapshot, input);
+  let next = applyTalkInput(snapshot, input);
+  if (action && canApplyUserAction(next, action)) {
+    next = applyUserAction(next, action);
+  }
+  if (next !== snapshot) {
+    commit(next);
+  }
+  return next;
+}
+
+export function applySummaryStore(
+  decision: Exclude<SummaryDecision, "undecided"> | "correct",
+): DemoState {
+  const next = applySummaryDecision(snapshot, decision);
+  commit(next);
+  return next;
+}
+
+export function updateShareStore(patch: Partial<ShareSelection>) {
+  const next = applySharePatch(snapshot, patch);
+  if (next === snapshot) {
+    return;
+  }
+  commit(next);
+}
+
+export function completeShareStore(): DemoState {
+  const next = completeShare(snapshot);
+  commit(next);
+  return next;
+}
+
+export function switchToFamilyStore(): DemoState {
+  const next = switchToFamilyView(snapshot);
+  commit(next);
+  return next;
 }

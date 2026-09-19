@@ -3,7 +3,10 @@ import type {
   CheckItemId,
   CostConditions,
   DemoState,
+  FamilyJudgment,
   PermitFlags,
+  ShareSelection,
+  TalkMessage,
 } from "./types";
 
 export const CONFIRMATION_DATE = "2026年4月12日";
@@ -18,6 +21,32 @@ export const FUNERAL_HOME = {
 export const FAMILY = {
   principal: "山田 春子（仮名）",
   child: "山田 健一（仮名）",
+};
+
+export const NAME_MEMO = "山田 春子";
+export const NAME_ON_CERTIFICATE = "山田 はる子";
+export const NAME_RESULT_BODY =
+  "戸籍上の氏名は山田 春子です。申請書は春子で記載します。";
+export const NAME_WILL_HANDLE_BODY = "確認します。";
+export const NAME_CHECK_DRAFT = [
+  "お世話になっております。",
+  "本人が残したメモでは氏名が「山田 春子」、受け取った死亡診断書では「山田 はる子」となっています。",
+  "申請書へ転記する前に、戸籍上の表記を確認してください。こちらでは推測して直しません。",
+].join("\n");
+
+export const MUNICIPALITY = {
+  name: "葵市役所（架空）",
+  area: "静岡県葵市（架空）",
+  note: "この体験は葵市の固定シナリオです。全国共通の案内ではありません。",
+};
+
+export const LEFTOVER_RECORDS = {
+  name: NAME_MEMO,
+  domicile: "静岡県葵市さくら町1丁目（架空の本籍）",
+  shareTo: "山田 健一（子ども）",
+  documentPlace: "引き出しの青い封筒",
+  cremationWish: "家族だけでのお見送り。日程は家族に任せる。場所は葵斎場を希望",
+  confirmedSchedule: "日程は家族に任せる",
 };
 
 export const WISHES = {
@@ -95,8 +124,35 @@ export const EMPTY_PERMIT: PermitFlags = {
   handedOver: false,
 };
 
+export const TALK_OPENING =
+  "春子さん、今日はどんなことを話しておきたいですか。";
+
+export const FAMILY_HANDOVER_DATE = "2026年4月15日";
+
+export const DEFAULT_SHARE: ShareSelection = {
+  includeWishes: true,
+  includeConfirmed: true,
+  includeUndecided: true,
+  includeEstimate: true,
+  includePrivate: false,
+  sharedWithKenichi: false,
+};
+
+export const DEFAULT_FAMILY_JUDGMENT: FamilyJudgment = {
+  statusNote: null,
+  arrival: null,
+  wantsRelatives: false,
+  acceptedProposal: false,
+  proposedDate: null,
+  proposedReason: null,
+};
+
+export const OPENING_MESSAGES: TalkMessage[] = [
+  { id: "m-open", from: "shirube", text: TALK_OPENING },
+];
+
 export const DEFAULT_DEMO_STATE: DemoState = {
-  version: 3,
+  version: 5,
   track: "prep",
   inquiryStatus: "awaiting_approval",
   conditions: DEFAULT_CONDITIONS,
@@ -116,6 +172,18 @@ export const DEFAULT_DEMO_STATE: DemoState = {
   autoPlay: false,
   nextAutoAt: null,
   appliedEventIds: [],
+  viewerRole: "mother",
+  talkStep: "open",
+  resumeStep: "open",
+  messages: [...OPENING_MESSAGES],
+  memories: [],
+  summaryDecision: "undecided",
+  share: { ...DEFAULT_SHARE },
+  familyJudgment: { ...DEFAULT_FAMILY_JUDGMENT },
+  timePassed: false,
+  messageSeq: 1,
+  nameCheckStatus: "not_compared",
+  handoverHeard: false,
 };
 
 export const REPLY_DELAY_MS = 1000;

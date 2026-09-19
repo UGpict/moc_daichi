@@ -13,6 +13,10 @@ import {
   FUNERAL_HOME,
   MUNICIPALITY_INQUIRY_BODY,
   MUNICIPALITY_VERIFIED_BODY,
+  NAME_MEMO,
+  NAME_ON_CERTIFICATE,
+  NAME_RESULT_BODY,
+  NAME_WILL_HANDLE_BODY,
   PERMIT_CARD,
   SCHEDULE_OFFER_BODY,
   STAFF_COMPLETED_BODY,
@@ -26,6 +30,10 @@ const titles: Record<EvidenceId, string> = {
   first_reply: "葬儀社の初回返信",
   followup_reply: "搬送条件の返信",
   schedule_offer: "日程変更の返信",
+  death_certificate: "死亡診断書サンプル",
+  name_memo: "本人が残した氏名メモ",
+  name_will_handle: "氏名確認の対応予定",
+  name_result: "氏名確認の結果",
   municipality_inquiry: "自治体からの照会",
   staff_will_handle: "担当者の対応予定",
   staff_completed: "担当者の完了報告",
@@ -95,13 +103,21 @@ export function EvidenceBody({
         ? FOLLOWUP_REPLY_BODY
         : id === "schedule_offer"
           ? SCHEDULE_OFFER_BODY
-          : id === "municipality_inquiry"
-            ? MUNICIPALITY_INQUIRY_BODY
-            : id === "staff_will_handle"
-              ? STAFF_WILL_HANDLE_BODY
-              : id === "staff_completed"
-                ? STAFF_COMPLETED_BODY
-                : MUNICIPALITY_VERIFIED_BODY;
+          : id === "death_certificate"
+            ? `死亡診断書サンプル（無効）\n氏名：${NAME_ON_CERTIFICATE}\nこのカードは体験用です。`
+            : id === "name_memo"
+              ? `本人が残したメモ\n氏名：${NAME_MEMO}\n手掛かりであり、照合済みではありません。`
+              : id === "name_will_handle"
+                ? NAME_WILL_HANDLE_BODY
+                : id === "name_result"
+                  ? NAME_RESULT_BODY
+                  : id === "municipality_inquiry"
+                    ? MUNICIPALITY_INQUIRY_BODY
+                    : id === "staff_will_handle"
+                      ? STAFF_WILL_HANDLE_BODY
+                      : id === "staff_completed"
+                        ? STAFF_COMPLETED_BODY
+                        : MUNICIPALITY_VERIFIED_BODY;
 
   return (
     <Card>

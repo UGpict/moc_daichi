@@ -1,3 +1,4 @@
+import { advanceTalkAfterInquiry } from "./conversation";
 import { calculateReferenceCost } from "./cost";
 import { applyInquiryAction, canApplyInquiryAction } from "./inquiry";
 import {
@@ -32,9 +33,22 @@ export function canApplyEvent(state: DemoState, id: DemoEventId): boolean {
     case "receive_followup_reply":
       return state.inquiryStatus === "awaiting_followup_reply";
     case "receive_schedule_offer":
-      return state.scheduleStatus === "adjusting";
+      return (
+        state.scheduleStatus === "adjusting" &&
+        state.handoverHeard &&
+        (state.nameCheckStatus === "awaiting_reply" ||
+          state.nameCheckStatus === "will_handle" ||
+          state.nameCheckStatus === "result_received")
+      );
     case "receive_schedule_confirm":
       return state.scheduleStatus === "awaiting_confirm";
+    case "receive_name_will_handle":
+      return state.nameCheckStatus === "awaiting_reply";
+    case "receive_name_result":
+      return (
+        state.nameCheckStatus === "will_handle" &&
+        state.scheduleStatus === "confirmed"
+      );
     case "receive_domicile_consult_reply":
       return state.domicileStatus === "consulting_sent";
     case "receive_domicile_recorded":
@@ -78,20 +92,20 @@ export function applyDemoEvent(state: DemoState, id: DemoEventId): DemoState {
 
   switch (id) {
     case "receive_first_reply":
-      return {
+      return advanceTalkAfterInquiry({
         ...marked,
         inquiryStatus: applyInquiryAction(state.inquiryStatus, "receive_first"),
         firstReplyDueAt: null,
-      };
+      });
     case "receive_followup_reply":
-      return {
+      return advanceTalkAfterInquiry({
         ...marked,
         inquiryStatus: applyInquiryAction(
           state.inquiryStatus,
           "receive_followup",
         ),
         followupReplyDueAt: null,
-      };
+      });
     case "receive_schedule_offer": {
       const stayDays = scheduleStayDaysAfterOffer();
       const next = {
@@ -112,6 +126,16 @@ export function applyDemoEvent(state: DemoState, id: DemoEventId): DemoState {
         applicationCremationDate: state.proposedCremationDate,
         formStatus: "updated",
       });
+    case "receive_name_will_handle":
+      return {
+        ...marked,
+        nameCheckStatus: "will_handle",
+      };
+    case "receive_name_result":
+      return {
+        ...marked,
+        nameCheckStatus: "result_received",
+      };
     case "receive_domicile_consult_reply":
       return refreshFormStatus({
         ...marked,
@@ -166,12 +190,26 @@ export function canApplyUserAction(
       return canApplyInquiryAction(state.inquiryStatus, "approve");
     case "approve_followup":
       return canApplyInquiryAction(state.inquiryStatus, "approve_followup");
+    case "report_handover_has_cert":
+    case "report_handover_none":
+      return state.track === "procedure" && !state.handoverHeard;
+    case "provide_death_cert":
+      return (
+        state.track === "procedure" &&
+        state.handoverHeard &&
+        state.nameCheckStatus === "not_compared"
+      );
+    case "approve_name_check":
+      return state.nameCheckStatus === "mismatch_found";
     case "choose_domicile_has_docs":
       return state.track === "procedure" && state.domicileStatus === "unknown";
     case "choose_domicile_unknown":
       return state.track === "procedure" && state.domicileStatus === "unknown";
     case "provide_domicile_sample":
-      return state.domicileStatus === "reviewing_sample";
+      return (
+        state.domicileStatus === "reviewing_sample" &&
+        state.nameCheckStatus === "result_received"
+      );
     case "approve_domicile_consult":
       return state.domicileStatus === "consulting";
     case "acknowledge_domicile_consult":
@@ -215,6 +253,18 @@ export function applyUserAction(
         ),
         followupReplyDueAt: now + REPLY_DELAY_MS,
       };
+    case "report_handover_has_cert":
+      return { ...state, handoverHeard: true };
+    case "report_handover_none":
+      return { ...state, handoverHeard: true };
+    case "provide_death_cert":
+      return {
+        ...state,
+        deathCertificate: "received",
+        nameCheckStatus: "mismatch_found",
+      };
+    case "approve_name_check":
+      return { ...state, nameCheckStatus: "awaiting_reply" };
     case "choose_domicile_has_docs":
       return { ...state, domicileStatus: "reviewing_sample" };
     case "choose_domicile_unknown":
@@ -251,8 +301,10 @@ export function applyUserAction(
 const AUTOMATIC_EVENTS: DemoEventId[] = [
   "receive_first_reply",
   "receive_followup_reply",
+  "receive_name_will_handle",
   "receive_schedule_offer",
   "receive_schedule_confirm",
+  "receive_name_result",
   "receive_domicile_consult_reply",
   "receive_domicile_recorded",
   "receive_forms_submitted",
@@ -268,6 +320,10 @@ const AUTOMATIC_EVENTS: DemoEventId[] = [
 const WAIT_USER_ACTIONS: UserActionId[] = [
   "approve_inquiry",
   "approve_followup",
+  "report_handover_has_cert",
+  "report_handover_none",
+  "provide_death_cert",
+  "approve_name_check",
   "choose_domicile_has_docs",
   "choose_domicile_unknown",
   "provide_domicile_sample",
@@ -341,6 +397,14 @@ export function canViewEvidence(state: DemoState, id: EvidenceId): boolean {
       return hasEvent(state, "receive_followup_reply");
     case "schedule_offer":
       return hasEvent(state, "receive_schedule_offer");
+    case "death_certificate":
+      return state.deathCertificate === "received";
+    case "name_memo":
+      return state.track === "procedure";
+    case "name_will_handle":
+      return hasEvent(state, "receive_name_will_handle");
+    case "name_result":
+      return hasEvent(state, "receive_name_result");
     case "municipality_inquiry":
       return state.caseInquiry.received;
     case "staff_will_handle":
@@ -355,6 +419,10 @@ export function canViewEvidence(state: DemoState, id: EvidenceId): boolean {
 }
 
 export const PROCEDURE_USER_ACTIONS: UserActionId[] = [
+  "report_handover_has_cert",
+  "report_handover_none",
+  "provide_death_cert",
+  "approve_name_check",
   "choose_domicile_has_docs",
   "choose_domicile_unknown",
   "provide_domicile_sample",

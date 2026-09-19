@@ -1,7 +1,10 @@
+import { seededMotherMemories } from "./conversation";
 import {
   CREMATION_FIRST_DATE,
   DEFAULT_CONDITIONS,
   DEFAULT_DEMO_STATE,
+  DEFAULT_FAMILY_JUDGMENT,
+  DEFAULT_SHARE,
   EMPTY_CASE_INQUIRY,
   EMPTY_PERMIT,
 } from "./sample-data";
@@ -15,6 +18,10 @@ export function cloneState(base: DemoState): DemoState {
     caseInquiry: { ...base.caseInquiry },
     permit: { ...base.permit },
     appliedEventIds: [...base.appliedEventIds],
+    messages: base.messages.map((item) => ({ ...item })),
+    memories: base.memories.map((item) => ({ ...item })),
+    share: { ...base.share },
+    familyJudgment: { ...base.familyJudgment },
   };
 }
 
@@ -35,8 +42,8 @@ export function createProcedureStartState(
     },
     hasReviewedEstimate: true,
     hasViewedFamily: true,
-    deathCertificate: "received",
-    domicileStatus: "unknown",
+    deathCertificate: "unchecked",
+    domicileStatus: "reviewing_sample",
     scheduleStatus: "adjusting",
     originalCremationDate: CREMATION_FIRST_DATE,
     proposedCremationDate: CREMATION_FIRST_DATE,
@@ -47,11 +54,32 @@ export function createProcedureStartState(
     autoPlay: false,
     nextAutoAt: null,
     appliedEventIds: [],
+    viewerRole: "family",
+    talkStep: "family_ready",
+    resumeStep: "family_ready",
+    memories: seededMotherMemories(),
+    summaryDecision: "confirmed",
+    share: { ...DEFAULT_SHARE, sharedWithKenichi: true },
+    familyJudgment: { ...DEFAULT_FAMILY_JUDGMENT },
+    timePassed: true,
+    nameCheckStatus: "not_compared",
+    handoverHeard: false,
   };
 }
 
 export function beginProcedureFromPrep(state: DemoState): DemoState {
-  return createProcedureStartState({ conditions: state.conditions });
+  const next = createProcedureStartState({ conditions: state.conditions });
+  return {
+    ...next,
+    messages: state.messages.map((item) => ({ ...item })),
+    memories: state.memories.length > 0 ? state.memories.map((item) => ({ ...item })) : next.memories,
+    share: { ...state.share, sharedWithKenichi: true },
+    familyJudgment: { ...state.familyJudgment },
+    summaryDecision: state.summaryDecision,
+    messageSeq: state.messageSeq,
+    viewerRole: "family",
+    timePassed: true,
+  };
 }
 
 export function hasFormDateMismatch(state: DemoState): boolean {
@@ -72,12 +100,17 @@ export function isDomicileConfirmed(state: DemoState): boolean {
   return state.domicileStatus === "staff_recorded";
 }
 
+export function isNameResolved(state: DemoState): boolean {
+  return state.nameCheckStatus === "result_received";
+}
+
 export function canSubmitForms(state: DemoState): boolean {
   return (
     state.track === "procedure" &&
     state.scheduleStatus === "confirmed" &&
     state.formStatus === "ready" &&
     isDomicileConfirmed(state) &&
+    isNameResolved(state) &&
     !state.caseInquiry.received
   );
 }

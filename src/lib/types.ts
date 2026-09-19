@@ -61,11 +61,25 @@ export type DomicileStatus = (typeof DOMICILE_STATUSES)[number];
 export const DEATH_CERTIFICATE_STATUSES = ["unchecked", "received"] as const;
 export type DeathCertificateStatus = (typeof DEATH_CERTIFICATE_STATUSES)[number];
 
+export const NAME_CHECK_STATUSES = [
+  "not_compared",
+  "mismatch_found",
+  "awaiting_reply",
+  "will_handle",
+  "result_received",
+] as const;
+
+export type NameCheckStatus = (typeof NAME_CHECK_STATUSES)[number];
+
 export type EvidenceId =
   | "estimate"
   | "first_reply"
   | "followup_reply"
   | "schedule_offer"
+  | "death_certificate"
+  | "name_memo"
+  | "name_will_handle"
+  | "name_result"
   | "municipality_inquiry"
   | "staff_will_handle"
   | "staff_completed"
@@ -77,6 +91,8 @@ export const DEMO_EVENT_IDS = [
   "receive_followup_reply",
   "receive_schedule_offer",
   "receive_schedule_confirm",
+  "receive_name_will_handle",
+  "receive_name_result",
   "receive_domicile_consult_reply",
   "receive_domicile_recorded",
   "receive_forms_submitted",
@@ -94,6 +110,10 @@ export type DemoEventId = (typeof DEMO_EVENT_IDS)[number];
 export const USER_ACTION_IDS = [
   "approve_inquiry",
   "approve_followup",
+  "report_handover_has_cert",
+  "report_handover_none",
+  "provide_death_cert",
+  "approve_name_check",
   "choose_domicile_has_docs",
   "choose_domicile_unknown",
   "provide_domicile_sample",
@@ -129,8 +149,84 @@ export interface CaseInquiry {
   municipalityVerified: boolean;
 }
 
+export const TALK_STEPS = [
+  "open",
+  "clarify_burden",
+  "who_attends",
+  "schedule_flex",
+  "modest_check",
+  "paused",
+  "summary",
+  "correct_who",
+  "correct_schedule",
+  "inquiry_offer",
+  "inquiry_waiting",
+  "inquiry_followup",
+  "share",
+  "handover_ready",
+  "family_status",
+  "family_arrival",
+  "family_proposal",
+  "family_correct",
+  "family_ready",
+] as const;
+
+export type TalkStep = (typeof TALK_STEPS)[number];
+
+export type ViewerRole = "mother" | "family";
+
+export type MemoryKind = "said" | "interpretation" | "confirmed" | "external_fact";
+
+export type MemoryCategory =
+  | "values"
+  | "wishes"
+  | "reason"
+  | "cost"
+  | "flexibility"
+  | "handover"
+  | "prep"
+  | "unknown";
+
+export interface MemoryRecord {
+  id: string;
+  kind: MemoryKind;
+  category: MemoryCategory;
+  text: string;
+  sourceQuote?: string;
+  private: boolean;
+}
+
+export interface TalkMessage {
+  id: string;
+  from: "shirube" | "user";
+  text: string;
+  private?: boolean;
+}
+
+export type SummaryDecision = "undecided" | "confirmed" | "deferred";
+
+export type ArrivalSlot = "apr16_evening" | "apr16_morning" | "undecided";
+
+export interface ShareSelection {
+  includeWishes: boolean;
+  includeConfirmed: boolean;
+  includeUndecided: boolean;
+  includeEstimate: boolean;
+  includePrivate: boolean;
+  sharedWithKenichi: boolean;
+}
+
+export interface FamilyJudgment {
+  statusNote: string | null;
+  arrival: ArrivalSlot | null;
+  wantsRelatives: boolean;
+  acceptedProposal: boolean;
+  proposedDate: string | null;
+  proposedReason: string | null;
+}
+
 export interface DemoState {
-  version: 3;
+  version: 5;
   track: DemoTrack;
   inquiryStatus: InquiryStatus;
   conditions: CostConditions;
@@ -150,6 +246,18 @@ export interface DemoState {
   autoPlay: boolean;
   nextAutoAt: number | null;
   appliedEventIds: DemoEventId[];
+  viewerRole: ViewerRole;
+  talkStep: TalkStep;
+  resumeStep: TalkStep;
+  messages: TalkMessage[];
+  memories: MemoryRecord[];
+  summaryDecision: SummaryDecision;
+  share: ShareSelection;
+  familyJudgment: FamilyJudgment;
+  timePassed: boolean;
+  messageSeq: number;
+  nameCheckStatus: NameCheckStatus;
+  handoverHeard: boolean;
 }
 
 export interface CostLine {

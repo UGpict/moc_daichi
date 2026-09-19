@@ -209,9 +209,9 @@ export default function InquiryPage() {
           </PrimaryButton>
         ) : null}
         {gotFollowup ? (
-          <PrimaryLink href="/demo/summary">子どもに残す一枚を見る</PrimaryLink>
+          <PrimaryLink href="/demo/share">家族に残す内容を見る</PrimaryLink>
         ) : null}
-        <SecondaryLink href="/demo/estimate">見積もりに戻る</SecondaryLink>
+        <SecondaryLink href="/demo">しるべと話す</SecondaryLink>
       </StickyActions>
     </div>
   );

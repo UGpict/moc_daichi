@@ -110,7 +110,7 @@ export function getDemoProgress(state: DemoState): {
   steps: ProgressStep[];
   headline: string;
   ctaLabel: string;
-  ctaHref: "/demo/estimate" | "/demo/agent" | "/demo/summary" | "/demo/family";
+  ctaHref: "/demo" | "/demo/summary" | "/demo/share" | "/demo/family";
 } {
   const { inquiryStatus, hasReviewedEstimate, hasViewedFamily } = state;
   const inquiryStarted = inquiryStatus !== "awaiting_approval";
@@ -120,17 +120,20 @@ export function getDemoProgress(state: DemoState): {
   const inquiryDone = confirmed;
   const familyDone = hasViewedFamily;
 
+  const wishesStarted = state.memories.length > 0 || state.talkStep !== "open";
+  const wishesDone = state.summaryDecision !== "undecided";
+
   const steps: ProgressStep[] = [
     {
       id: "wishes",
-      label: "希望を見る",
-      status: "done",
-      statusLabel: "確認済み",
+      label: "希望を話す",
+      status: wishesDone ? "done" : wishesStarted ? "current" : "current",
+      statusLabel: wishesDone ? "確認済み" : "会話中",
     },
     {
       id: "estimate",
       label: "見積もりの分からないところ",
-      status: estimateDone ? "done" : "current",
+      status: estimateDone ? "done" : wishesDone ? "current" : "todo",
       statusLabel: estimateDone ? "確認済み" : "未確認",
     },
     {
@@ -145,18 +148,54 @@ export function getDemoProgress(state: DemoState): {
     },
     {
       id: "family",
-      label: "子どもに一枚残す",
+      label: "家族に残す",
       status: familyDone ? "done" : confirmed ? "current" : "todo",
       statusLabel: familyDone ? "確認済み" : confirmed ? "未確認" : "未確認",
     },
   ];
 
-  if (!estimateDone) {
+  if (state.viewerRole === "family" || state.timePassed) {
     return {
       steps,
-      headline: "見積もりの、書いていないところを見てみましょう",
-      ctaLabel: "見積もりを見る",
-      ctaHref: "/demo/estimate",
+      headline: "お母さまの記録を踏まえて、いまの判断を進めましょう",
+      ctaLabel: "家族の画面を開く",
+      ctaHref: "/demo/family",
+    };
+  }
+
+  if (
+    state.talkStep === "open" ||
+    state.talkStep === "clarify_burden" ||
+    state.talkStep === "who_attends" ||
+    state.talkStep === "schedule_flex" ||
+    state.talkStep === "modest_check" ||
+    state.talkStep === "paused" ||
+    state.talkStep === "correct_who" ||
+    state.talkStep === "correct_schedule"
+  ) {
+    return {
+      steps,
+      headline: "話した内容から、希望を整理します",
+      ctaLabel: "しるべと話す",
+      ctaHref: "/demo",
+    };
+  }
+
+  if (state.talkStep === "summary") {
+    return {
+      steps,
+      headline: "お話をまとめました。合っているか見てください",
+      ctaLabel: "まとめた内容を見る",
+      ctaHref: "/demo/summary",
+    };
+  }
+
+  if (!estimateDone && state.talkStep === "inquiry_offer") {
+    return {
+      steps,
+      headline: "見積もりの、書いていないところを確認してもよいですか",
+      ctaLabel: "しるべと話す",
+      ctaHref: "/demo",
     };
   }
 
@@ -164,8 +203,8 @@ export function getDemoProgress(state: DemoState): {
     return {
       steps,
       headline: "見積もりの分からないところを、葬儀社に聞いてよいですか",
-      ctaLabel: "質問を見て決める",
-      ctaHref: "/demo/agent",
+      ctaLabel: "確認してよいか見る",
+      ctaHref: "/demo",
     };
   }
 
@@ -174,7 +213,7 @@ export function getDemoProgress(state: DemoState): {
       steps,
       headline: "返事は届きました。まだ分からないことがあります",
       ctaLabel: "もう一度聞いてよいか見る",
-      ctaHref: "/demo/agent",
+      ctaHref: "/demo",
     };
   }
 
@@ -182,15 +221,24 @@ export function getDemoProgress(state: DemoState): {
     return {
       steps,
       headline: "葬儀社からの返事を待ちましょう",
-      ctaLabel: "返事を見る",
-      ctaHref: "/demo/agent",
+      ctaLabel: "しるべと話す",
+      ctaHref: "/demo",
+    };
+  }
+
+  if (state.talkStep === "share" || state.talkStep === "handover_ready") {
+    return {
+      steps,
+      headline: "家族に残す内容を確認してください",
+      ctaLabel: "残す内容を見る",
+      ctaHref: "/demo/share",
     };
   }
 
   if (hasViewedFamily) {
     return {
       steps,
-      headline: "子どもに残す一枚の準備ができています",
+      headline: "家族に残す準備ができています",
       ctaLabel: "家族が見る画面を開く",
       ctaHref: "/demo/family",
     };
@@ -198,8 +246,8 @@ export function getDemoProgress(state: DemoState): {
 
   return {
     steps,
-    headline: "分かったことを、子どもに一枚で残しましょう",
-    ctaLabel: "子どもに残す一枚を見る",
+    headline: "お話をまとめました。合っているか見てください",
+    ctaLabel: "まとめた内容を見る",
     ctaHref: "/demo/summary",
   };
 }

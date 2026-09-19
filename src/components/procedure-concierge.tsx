@@ -10,7 +10,13 @@ import {
   scheduleChangeLines,
   scheduleRequestSummary,
 } from "@/lib/procedure-view";
-import { DOMICILE_SAMPLE_NOTE, FUNERAL_HOME } from "@/lib/sample-data";
+import {
+  DOMICILE_SAMPLE_NOTE,
+  FUNERAL_HOME,
+  NAME_CHECK_DRAFT,
+  NAME_MEMO,
+  NAME_ON_CERTIFICATE,
+} from "@/lib/sample-data";
 import type { DemoState, EvidenceId, UserActionId } from "@/lib/types";
 
 export function ProcedureConcierge({
@@ -43,6 +49,25 @@ export function ProcedureConcierge({
         <PrimaryButton type="button" onClick={onStart}>
           手続きの体験を始める
         </PrimaryButton>
+      ) : null}
+
+      {view.nameCertificate ? (
+        <Card>
+          <h2 className="text-xl font-semibold">照合した氏名</h2>
+          <p className="mt-3 text-lg">本人メモ（手掛かり）：{NAME_MEMO}</p>
+          <p className="mt-2 text-lg">死亡診断書：{NAME_ON_CERTIFICATE}</p>
+          <p className="mt-2 text-base text-ink-soft">推測して、どちらかに揃えません。</p>
+        </Card>
+      ) : null}
+
+      {view.nameDraft ? (
+        <Card>
+          <h2 className="text-xl font-semibold">担当者へ確認する内容</h2>
+          <p className="mt-2 text-base text-ink-soft">
+            宛先：{FUNERAL_HOME.name}（{FUNERAL_HOME.fictionalNote}）／{FUNERAL_HOME.staff}
+          </p>
+          <p className="mt-3 whitespace-pre-wrap text-lg leading-relaxed">{NAME_CHECK_DRAFT}</p>
+        </Card>
       ) : null}
 
       {view.sampleNote ? (

@@ -8,8 +8,11 @@ import {
 import {
   DOMICILE_CONSULT_BODY,
   DOMICILE_CONSULT_REPLY,
-  DOMICILE_SAMPLE_NOTE,
   FUNERAL_HOME,
+  LEFTOVER_RECORDS,
+  NAME_MEMO,
+  NAME_ON_CERTIFICATE,
+  NAME_WILL_HANDLE_BODY,
   ROLES,
 } from "./sample-data";
 import type { DemoState, EvidenceId, UserActionId } from "./types";
@@ -31,6 +34,8 @@ export interface ProcedureView {
   sampleNote: boolean;
   consultDraft: boolean;
   consultReply: boolean;
+  nameDraft: boolean;
+  nameCertificate: boolean;
   scheduleReport: boolean;
   familyPause: boolean;
   evidenceId: EvidenceId | null;
@@ -60,13 +65,18 @@ export function scheduleCostDelta(state: DemoState): {
 export function getProcedureView(state: DemoState): ProcedureView {
   const cost = scheduleCostDelta(state);
   const offerArrived = hasEvent(state, "receive_schedule_offer");
-  const showStart = state.track === "procedure" && !state.autoPlay && !state.permit.handedOver;
+  const showStart = false;
 
   const progress: string[] = [];
   if (state.deathCertificate === "received") {
     progress.push("死亡診断書は受領済みとして記録しています。");
   }
-  if (state.scheduleStatus === "adjusting") {
+  if (
+    state.scheduleStatus === "adjusting" &&
+    state.handoverHeard &&
+    state.nameCheckStatus !== "not_compared" &&
+    state.nameCheckStatus !== "mismatch_found"
+  ) {
     progress.push(
       "葬儀社には火葬日程を確認しています。返事が届いたら、費用への影響もまとめてお知らせします。",
     );
@@ -97,6 +107,8 @@ export function getProcedureView(state: DemoState): ProcedureView {
     sampleNote: false,
     consultDraft: false,
     consultReply: false,
+    nameDraft: false,
+    nameCertificate: false,
     scheduleReport: false,
     familyPause: false,
     evidenceId: null,
@@ -114,32 +126,99 @@ export function getProcedureView(state: DemoState): ProcedureView {
     };
   }
 
+  if (!state.handoverHeard) {
+    return {
+      ...empty,
+      prompt:
+        "お母さまは、家族だけでのお見送りを希望され、日程は家族に任せると確認しています。氏名は手掛かりとして「山田 春子」、本籍メモは静岡県葵市さくら町1丁目です。公的書類との照合は、これからします。まず、現在どこまで手配できているか教えてください。",
+      detail: "同じ希望は、もう一度聞きません。",
+      choices: [
+        { id: "report_handover_has_cert", label: "死亡診断書は受け取った", kind: "primary" },
+        { id: "report_handover_none", label: "まだ何も手配していない", kind: "secondary" },
+      ],
+    };
+  }
+
+  if (state.nameCheckStatus === "not_compared") {
+    return {
+      ...empty,
+      prompt: "死亡診断書の記載と、お母さまが残したメモを照合します。サンプルを見せていただけますか？",
+      detail: "本人の発言は手掛かりです。書類の記載を、推測では埋めません。",
+      choices: [
+        { id: "provide_death_cert", label: "サンプルの死亡診断書を渡す", kind: "primary" },
+      ],
+    };
+  }
+
+  if (state.nameCheckStatus === "mismatch_found") {
+    return {
+      ...empty,
+      prompt:
+        "お母さまが残されたメモと、書類で氏名の表記が異なっています。手続きを進める前に、担当者へ確認する内容をまとめました。",
+      detail: `メモ：${NAME_MEMO} ／ 死亡診断書：${NAME_ON_CERTIFICATE}。こちらで直して転記はしません。`,
+      nameDraft: true,
+      nameCertificate: true,
+      choices: [
+        { id: "approve_name_check", label: "この内容で担当者へ確認する", kind: "primary" },
+      ],
+      evidenceId: canViewEvidence(state, "death_certificate") ? "death_certificate" : null,
+    };
+  }
+
+  if (state.nameCheckStatus === "awaiting_reply") {
+    return {
+      ...empty,
+      prompt: "氏名の表記について、担当者へ確認を依頼しました。",
+      detail: "実際の送信は行っていません。返事が届くまで、この項目は確定しません。",
+      waiting: "担当者からの返事を待っています。",
+      nameDraft: true,
+    };
+  }
+
   if (state.domicileStatus === "unknown") {
     return {
       ...empty,
       prompt:
-        "書類の準備を進めています。まず、お母さまの本籍について確認させてください。分かるものはお手元にありますか？",
-      detail: "本籍の確認が必要です。分かる資料があるか、一緒に確認しましょう。",
+        "本籍は、お母さまのメモを手掛かりにします。分かる資料は、すでに残されています。",
+      detail: "同じ質問は繰り返しません。メモの内容を担当者へ伝えてよいか確認します。",
       choices: [
-        { id: "choose_domicile_has_docs", label: "本人が残した資料がある", kind: "primary" },
+        { id: "choose_domicile_has_docs", label: "本人が残した資料を見る", kind: "primary" },
         { id: "choose_domicile_unknown", label: "分からない", kind: "secondary" },
       ],
     };
   }
 
-  if (state.domicileStatus === "reviewing_sample") {
+  if (
+    state.nameCheckStatus === "will_handle" &&
+    state.scheduleStatus === "adjusting"
+  ) {
     return {
       ...empty,
-      prompt: "残されていたメモを、一緒に確認しましょう。",
-      detail: `${DOMICILE_SAMPLE_NOTE.domicile} と書いてあります。この内容を担当者へ伝えてよいですか？`,
+      prompt:
+        "担当者から返事がありました。確認結果はまだ届いていないため、この項目は保留しています。ほかに準備できる部分を先に整理します。",
+      detail: `「${NAME_WILL_HANDLE_BODY}」だけでは、氏名の不一致は解消していません。火葬の候補が届き次第、ご案内します。`,
+      waiting: "火葬日程の候補と、氏名の確認結果を待っています。",
+    };
+  }
+
+  if (
+    state.domicileStatus === "reviewing_sample" &&
+    state.nameCheckStatus === "result_received"
+  ) {
+    return {
+      ...empty,
+      prompt:
+        "氏名は戸籍上「山田 春子」と確認できました。本籍は、お母さまのメモを手掛かりとして担当者へ伝えます。公的書類との照合が済んだ扱いにはしません。",
+      detail: `${LEFTOVER_RECORDS.domicile}。この内容を、確認の手掛かりとして伝えてよいですか？`,
       sampleNote: true,
       choices: [
         {
           id: "provide_domicile_sample",
-          label: "この資料の内容を伝える",
+          label: "メモの内容を手掛かりとして伝える",
           kind: "primary",
         },
       ],
+      evidenceId: canViewEvidence(state, "name_result") ? "name_result" : null,
     };
   }
 
@@ -195,8 +274,8 @@ export function getProcedureView(state: DemoState): ProcedureView {
   if (state.scheduleStatus === "awaiting_adjust_approval") {
     return {
       ...empty,
-      prompt: `葬儀社から、翌日なら予約できると連絡がありました。安置が1日延びるため、参考額は${formatYen(cost.delta)}増えて${formatYen(cost.afterTotal)}になります。候補日で調整する場合は、書類の日程確認も依頼します。`,
-      detail: "予約は、この場の承認だけでは確定しません。",
+      prompt: `生前に「日程は家族に任せる」と確認しています。葬儀社から、翌日なら予約できると連絡がありました。安置が1日延びるため、参考額は${formatYen(cost.delta)}増えて${formatYen(cost.afterTotal)}になります。過去の見積額や空きは、いまも有効とは限りません。`,
+      detail: "予約は、この場の承認だけでは確定しません。氏名の確認結果は、まだ保留のままです。",
       scheduleReport: true,
       choices: [
         {
@@ -211,6 +290,16 @@ export function getProcedureView(state: DemoState): ProcedureView {
         },
       ],
       evidenceId: canViewEvidence(state, "schedule_offer") ? "schedule_offer" : null,
+    };
+  }
+
+  if (state.nameCheckStatus === "will_handle") {
+    return {
+      ...empty,
+      prompt:
+        "担当者から返事がありました。確認結果はまだ届いていないため、この項目は保留しています。ほかに準備できる部分を先に整理します。",
+      detail: `「${NAME_WILL_HANDLE_BODY}」だけでは完了ではありません。氏名の確認結果を待ちます。`,
+      waiting: "氏名の確認結果を待っています。",
     };
   }
 

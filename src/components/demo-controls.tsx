@@ -7,6 +7,8 @@ import type { DemoEventId } from "@/lib/types";
 const TRIGGERS: { id: DemoEventId; label: string }[] = [
   { id: "receive_first_reply", label: "見積の初回返信" },
   { id: "receive_followup_reply", label: "搬送条件の返信" },
+  { id: "receive_name_will_handle", label: "氏名「確認します」返信" },
+  { id: "receive_name_result", label: "氏名の確認結果" },
   { id: "receive_schedule_offer", label: "火葬日程の変更案" },
   { id: "receive_domicile_consult_reply", label: "本籍確認の相談返事" },
   { id: "receive_domicile_recorded", label: "本籍の反映報告" },
