@@ -1,9 +1,9 @@
 {
-  "at": "2026-09-19T22:13:13.385Z",
+  "at": "2026-09-19T22:39:05.433Z",
   "spec": "v0.4 §6.1",
   "reports": [
     {
-      "git": "f29a275",
+      "git": "03b995f",
       "runIds": [],
       "durationsMs": [],
       "costs": [],
@@ -85,7 +85,7 @@
           "id": "persist_backend",
           "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
           "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
+          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
         }
       ],
       "persistKind": "CREDENTIALS",
@@ -93,7 +93,7 @@
       "ok": false
     },
     {
-      "git": "f29a275",
+      "git": "03b995f",
       "runIds": [],
       "durationsMs": [],
       "costs": [],
@@ -175,7 +175,7 @@
           "id": "persist_backend",
           "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
           "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
+          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
         }
       ],
       "persistKind": "CREDENTIALS",
@@ -183,7 +183,7 @@
       "ok": false
     },
     {
-      "git": "f29a275",
+      "git": "03b995f",
       "runIds": [],
       "durationsMs": [],
       "costs": [],
@@ -265,7 +265,7 @@
           "id": "persist_backend",
           "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
           "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
+          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
         }
       ],
       "persistKind": "CREDENTIALS",
@@ -273,7 +273,7 @@
       "ok": false
     },
     {
-      "git": "f29a275",
+      "git": "03b995f",
       "runIds": [],
       "durationsMs": [],
       "costs": [],
@@ -355,7 +355,7 @@
           "id": "persist_backend",
           "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
           "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
+          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
         }
       ],
       "persistKind": "CREDENTIALS",
@@ -363,7 +363,7 @@
       "ok": false
     },
     {
-      "git": "f29a275",
+      "git": "03b995f",
       "runIds": [],
       "durationsMs": [],
       "costs": [],
@@ -445,7 +445,7 @@
           "id": "persist_backend",
           "label": "LIVE 永続化は Firestore（JSON へ黙って落とさない）",
           "verdict": "BLOCKED",
-          "detail": "CREDENTIALS: Firestore 認証情報不足: ADC ファイルが存在しない。LIVE は JSON へ落とさない"
+          "detail": "CREDENTIALS: GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
         }
       ],
       "persistKind": "CREDENTIALS",

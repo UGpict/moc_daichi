@@ -4,6 +4,32 @@
 
 このファイルは実 LLM・実外部 API の通し結果だけを「LIVE 成功」と書く。モック合格は別に記す。秘密値は書かない。未達は未達のまま書く。成功条件は緩めない。
 
+## v0.4 §6.1（実行 commit `03b995f`）
+
+対象更新・トランザクション・カフェ補完削除のあと、同一設定で `npm run persist:diagnose` と `npm run demo:five`。
+
+| 項目 | 結果 |
+|---|---|
+| 完全成功 | **0 / 5** |
+| 部分成功 | 0 / 5 |
+| FAILED | 0 / 5 |
+| BLOCKED | **5 / 5** |
+| persist | 5 本とも **CREDENTIALS**。読み書き probe は未実施（ADC 取得前に停止） |
+| JSON フォールバック | なし |
+
+この実行中 VM には Runtime Secret が無い。`FIREBASE_SERVICE_ACCOUNT_JSON` をダッシュボードに保存したあと、**新しい Agent** で再実行する。手順: `docs/adc-cloud-agent.md`。
+
+切り分け（`docs/reports/persist-diagnosis.json`）:
+
+| 項目 | 値 |
+|---|---|
+| 失敗した処理 | `open GOOGLE_APPLICATION_CREDENTIALS` |
+| 実エラー | `ENOENT: placeholder path, no such file` |
+| materialize | `placeholder` / materialized=false |
+| 権限不足 | 未到達 |
+| Firestore 未設定 | 未到達 |
+| コード | scopedWrites=true, approvalTransaction=true |
+
 ## v0.4 §6.1（実行 commit `f29a275`）
 
 同一コード・プロンプト・モデル（`openai/gpt-4o-mini` / `openai/gpt-4o`）で `npm run demo:five` を 5 回。

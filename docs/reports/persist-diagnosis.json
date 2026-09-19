@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-19T22:18:41.116Z",
+  "at": "2026-09-19T22:38:49.851Z",
   "sync": {
     "backend": "firestore",
     "kind": "CREDENTIALS",
@@ -16,14 +16,18 @@
     "implemented": {
       "jsonStore": true,
       "firestoreRepo": true,
-      "switchByPersistBackend": true
+      "switchByPersistBackend": true,
+      "scopedWrites": true,
+      "approvalTransaction": true
     },
     "adc": {
       "envSet": true,
       "fileExists": false,
       "pathIsPlaceholder": true,
       "basename": "service-account.json",
-      "parentDirExists": false
+      "parentDirExists": false,
+      "materializeSource": "placeholder",
+      "materialized": false
     },
     "projectIdSet": true,
     "emulator": false
@@ -44,16 +48,29 @@
     "implemented": {
       "jsonStore": true,
       "firestoreRepo": true,
-      "switchByPersistBackend": true
+      "switchByPersistBackend": true,
+      "scopedWrites": true,
+      "approvalTransaction": true
     },
     "adc": {
       "envSet": true,
       "fileExists": false,
       "pathIsPlaceholder": true,
       "basename": "service-account.json",
-      "parentDirExists": false
+      "parentDirExists": false,
+      "materializeSource": "placeholder",
+      "materialized": false
     },
     "projectIdSet": true,
     "emulator": false
+  },
+  "readWrite": {
+    "attempted": false,
+    "kind": "CREDENTIALS",
+    "wrote": false,
+    "readBack": false,
+    "deleted": false,
+    "operation": "open GOOGLE_APPLICATION_CREDENTIALS",
+    "detail": "GOOGLE_APPLICATION_CREDENTIALS がプレースホルダ /path/to/service-account.json。実ファイルが無い。認証情報の取得失敗。"
   }
 }
