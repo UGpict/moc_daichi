@@ -14,7 +14,7 @@
   - ヘッダー `X-OrcaRouter-Include-Cost: true` で `usage.cost_usd`
 - Named Router: [named-routers](https://docs.orcarouter.ai/routing/named-routers)
   - 呼び出しは `model: "orcarouter/{name}"`
-  - ダッシュボード未作成の名前を想像して送らない。未作成なら BLOCKED
+  - ダッシュボード未作成の名前を想像して送らない。未作成なら `/v1/models` の実在 ID（例 `openai/gpt-4o-mini`）を使う
 
 実装: `src/server/llm/index.ts`。LIVE でキーが無ければ BLOCKED（モック推論へ落とさない）。DEV は `mock/planner-v0.7`。
 

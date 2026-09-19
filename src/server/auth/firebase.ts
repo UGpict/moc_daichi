@@ -34,11 +34,39 @@ export function firebaseAdminApp(): App | null {
 }
 
 export async function verifyFirebaseIdToken(token: string): Promise<string | null> {
+  const adminUid = await verifyWithAdmin(token);
+  if (adminUid) return adminUid;
+  return verifyWithIdentityToolkit(token);
+}
+
+async function verifyWithAdmin(token: string): Promise<string | null> {
   const a = firebaseAdminApp();
   if (!a) return null;
   try {
     const decoded = await getAuth(a).verifyIdToken(token);
     return decoded.uid;
+  } catch {
+    return null;
+  }
+}
+
+/** ADC が無いときでも、ウェブ API キーで ID トークンの妥当性を Firebase に確認する。mock トークンは使わない。 */
+async function verifyWithIdentityToolkit(token: string): Promise<string | null> {
+  const env = getEnv();
+  if (!env.firebaseApiKey || env.profile === "DEV") return null;
+  try {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(env.firebaseApiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token }),
+        signal: AbortSignal.timeout(8000),
+      },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { users?: { localId?: string }[] };
+    return json.users?.[0]?.localId ?? null;
   } catch {
     return null;
   }
