@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-paper: #f6f1e8;
+  --color-paper-deep: #efe6d6;
+  --color-card: #fffdf8;
+  --color-ink: #2b2924;
+  --color-ink-soft: #5a554c;
+  --color-forest: #1f4a3a;
+  --color-forest-hover: #16382c;
+  --color-forest-soft: #e3eee8;
+  --color-line: #d4cbb8;
+  --color-amber: #7a4e10;
+  --color-amber-soft: #f3e6cc;
+  --font-sans: var(--font-noto-sans-jp);
+}
+
+html {
+  background: var(--color-paper);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
