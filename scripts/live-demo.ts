@@ -278,6 +278,10 @@ async function onePass(): Promise<Report> {
   if (snap1.plan?.validation?.state === "FAIL") {
     failures.push(`initial validation FAIL: ${(snap1.plan.validation.issues as {code:string}[]).map((i)=>i.code).join(",")}`);
   }
+  if (!["SUCCEEDED", "WAITING_APPROVAL"].includes(first.view.run.status)) {
+    failures.push(`initial run ${first.view.run.status}`);
+    return { ok: false, git, runIds, durationsMs, costs, notes, failures, repairCount };
+  }
 
   await api(`/api/sessions/${session.sessionId}/progress`, {
     method: "POST",

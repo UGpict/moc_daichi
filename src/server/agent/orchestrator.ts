@@ -3,6 +3,7 @@ import { getEnv } from "@/config/env";
 import type { AppEvent, EventType, Memory, Run, Spot } from "@/domain/schemas";
 import { diffPlan } from "@/domain/plan/diffPlan";
 import { evaluateAutoApply } from "@/domain/plan/evaluateAutoApply";
+import { preferenceMatchIds } from "@/domain/plan/validatePlan";
 import { newId } from "@/lib/ids";
 import { realNowIso } from "@/lib/time";
 import { callLLM } from "@/server/llm";
@@ -473,13 +474,22 @@ export async function runPlanningOrchestrator(runId: string, signal: AbortSignal
       const closedSpotIds = built.plan.items
         .filter((it) => errors.some((e) => e.code === "CLOSED" && e.itemIds.includes(it.id)))
         .map((it) => it.spotId);
+      const mustKeep = new Set(mustVisit);
+      for (const pref of session.input.preferences.filter((p) => p.priority === "MUST")) {
+        for (const s of Object.values({ ...spotMap, ...built.spots })) {
+          if (preferenceMatchIds(s, [pref]).length) mustKeep.add(s.id);
+        }
+      }
+      const mustCandidateIds = [...mustKeep];
       const choice = chooseRepairStrategy({
         codes,
         attemptIndex: n,
         orderedIds: repairIds,
         lockedIds,
-        mustVisit,
+        mustVisit: [...mustKeep],
         closedSpotIds,
+        mustCandidateIds,
+        currentMode: travelMode,
       });
       if (!choice) break;
       repairIds = choice.nextIds;

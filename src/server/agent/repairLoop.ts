@@ -5,7 +5,8 @@ export type RepairStrategy =
   | "DROP_CLOSED"
   | "SHORTEN_STAYS"
   | "REORDER_NEAREST"
-  | "CHANGE_MODE_TRANSIT";
+  | "CHANGE_MODE_TRANSIT"
+  | "RESTORE_MUST";
 
 export type RepairChoice = {
   strategy: RepairStrategy;
@@ -39,12 +40,26 @@ export function chooseRepairStrategy(args: {
   lockedIds: string[];
   mustVisit: string[];
   closedSpotIds?: string[];
+  mustCandidateIds?: string[];
+  currentMode?: TravelMode;
 }): RepairChoice | null {
   const locked = new Set(args.lockedIds.filter(Boolean));
   const must = new Set(args.mustVisit.filter(Boolean));
   const ids = args.orderedIds.filter(Boolean);
   const flexible = droppable(ids, locked, must);
   const codes = new Set(args.codes);
+  const mode = args.currentMode ?? "WALK";
+  const missingMust = (args.mustCandidateIds ?? []).find((id) => !ids.includes(id));
+
+  if (codes.has("MUST_UNMET") && missingMust) {
+    return {
+      strategy: "RESTORE_MUST",
+      nextIds: [...ids, missingMust].slice(0, 4),
+      stayScale: 0.55,
+      travelMode: mode === "TRANSIT" ? null : "TRANSIT",
+      reason: `MUST の候補（${missingMust}）を戻し、時間は TRANSIT と短縮で稼ぐ。条件は緩めない`,
+    };
+  }
 
   if (codes.has("CLOSED") && flexible.length) {
     const closed = (args.closedSpotIds ?? []).find((id) => flexible.includes(id));
@@ -58,18 +73,19 @@ export function chooseRepairStrategy(args: {
     };
   }
 
-  if ((codes.has("LATE_TO_END") || codes.has("WAIT_OR_TRAVEL") || codes.has("OVERLAP")) && args.attemptIndex === 0 && flexible.length && ids.length > 3) {
+  const late = codes.has("LATE_TO_END") || codes.has("WAIT_OR_TRAVEL") || codes.has("OVERLAP");
+  if (late && args.attemptIndex === 0 && flexible.length && ids.length > 3) {
     const drop = flexible.at(-1)!;
     return {
       strategy: "DROP_FLEXIBLE",
       nextIds: ids.filter((id) => id !== drop),
       stayScale: 1,
       travelMode: null,
-      reason: `終了遅れのため固定以外の 1 件（${drop}）を外す`,
+      reason: `終了遅れのため MUST/固定以外の 1 件（${drop}）を外す`,
     };
   }
 
-  if ((codes.has("LATE_TO_END") || codes.has("WAIT_OR_TRAVEL") || codes.has("OVERLAP")) && args.attemptIndex <= 1) {
+  if (late && args.attemptIndex === 0) {
     return {
       strategy: "SHORTEN_STAYS",
       nextIds: ids,
@@ -79,23 +95,26 @@ export function chooseRepairStrategy(args: {
     };
   }
 
-  if (codes.has("LATE_TO_END") || codes.has("WAIT_OR_TRAVEL")) {
-    if (args.attemptIndex >= 1 && flexible.length >= 2) {
-      const next = [ids[0], ...ids.slice(1).reverse()];
-      return {
-        strategy: "REORDER_NEAREST",
-        nextIds: [...new Set(next.filter(Boolean))],
-        stayScale: 0.55,
-        travelMode: null,
-        reason: "訪問順を入れ替えて移動を短くする",
-      };
-    }
+  if (late && mode !== "TRANSIT") {
     return {
       strategy: "CHANGE_MODE_TRANSIT",
       nextIds: ids,
       stayScale: 0.55,
       travelMode: "TRANSIT",
       reason: "徒歩では間に合わないので TRANSIT で再検証する",
+    };
+  }
+
+  if (late && flexible.length >= 2) {
+    const lockedId = ids.find((id) => locked.has(id));
+    const rest = ids.filter((id) => id !== lockedId);
+    const next = lockedId ? [rest[0], lockedId, ...rest.slice(1).reverse()].filter(Boolean) : [ids[0], ...ids.slice(1).reverse()];
+    return {
+      strategy: "REORDER_NEAREST",
+      nextIds: [...new Set(next.filter(Boolean))],
+      stayScale: 0.55,
+      travelMode: mode === "TRANSIT" ? "TRANSIT" : null,
+      reason: "固定予定の前後で訪問順を入れ替えて移動を短くする",
     };
   }
 
@@ -106,7 +125,7 @@ export function chooseRepairStrategy(args: {
       nextIds: ids.filter((id) => id !== drop),
       stayScale: 1,
       travelMode: null,
-      reason: `FAIL (${args.codes.join(",")}) のため固定以外を 1 件外す`,
+      reason: `FAIL (${args.codes.join(",")}) のため MUST/固定以外を 1 件外す`,
     };
   }
 

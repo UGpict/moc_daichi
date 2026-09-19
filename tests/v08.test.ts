@@ -24,11 +24,37 @@ describe("v0.8 repair strategies", () => {
     assert.deepEqual(choice?.nextIds, ["lock", "park", "keep"]);
   });
 
-  it("shortens stays on the second LATE_TO_END attempt", () => {
+  it("does not drop a MUST sweets stop when trimming LATE_TO_END", () => {
+    const choice = chooseRepairStrategy({
+      codes: ["LATE_TO_END"],
+      attemptIndex: 0,
+      orderedIds: ["lock", "park", "keep", "cafe"],
+      lockedIds: ["lock"],
+      mustVisit: ["cafe"],
+    });
+    assert.equal(choice?.strategy, "DROP_FLEXIBLE");
+    assert.ok(choice?.nextIds.includes("cafe"));
+    assert.ok(!choice?.nextIds.includes("keep"));
+  });
+
+  it("switches to TRANSIT after shortening if still late", () => {
     const choice = chooseRepairStrategy({
       codes: ["LATE_TO_END"],
       attemptIndex: 1,
-      orderedIds: ["lock", "park"],
+      orderedIds: ["lock", "park", "cafe"],
+      lockedIds: ["lock"],
+      mustVisit: ["cafe"],
+      currentMode: "WALK",
+    });
+    assert.equal(choice?.strategy, "CHANGE_MODE_TRANSIT");
+    assert.equal(choice?.travelMode, "TRANSIT");
+  });
+
+  it("shortens stays first when there are only 3 stops", () => {
+    const choice = chooseRepairStrategy({
+      codes: ["LATE_TO_END"],
+      attemptIndex: 0,
+      orderedIds: ["lock", "park", "cafe"],
       lockedIds: ["lock"],
       mustVisit: [],
     });
