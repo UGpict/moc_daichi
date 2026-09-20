@@ -1,4 +1,4 @@
-import type { PersistTarget, ProviderMode } from "@/config/env";
+import type { PersistTarget, ProviderMode } from "@/config/env-types";
 
 export type ProvidersView = {
   persist: PersistTarget;

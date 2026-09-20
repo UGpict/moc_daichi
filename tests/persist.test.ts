@@ -70,6 +70,16 @@ describe("persist diagnose without service account checks", () => {
     assert.match(d.detail, /applicationDefault/);
   });
 
+  it("strips a missing GAC path without throwing when the file is absent", () => {
+    const prev = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = "/tmp/futari-missing-adc.json";
+    const result = stripPlaceholderAdc();
+    assert.equal(result.stripped, true);
+    assert.equal(process.env.GOOGLE_APPLICATION_CREDENTIALS, undefined);
+    if (prev != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prev;
+    else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  });
+
   it("strips placeholder ADC so applicationDefault can use user credentials", () => {
     const prev = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     process.env.GOOGLE_APPLICATION_CREDENTIALS = "/path/to/service-account.json";

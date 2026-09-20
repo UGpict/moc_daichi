@@ -2,6 +2,15 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+/** Vercel のクライアント／一部ランタイムでは node:fs が空になる。 */
+function pathExists(path: string): boolean {
+  try {
+    return typeof existsSync === "function" && existsSync(path);
+  } catch {
+    return false;
+  }
+}
+
 const PLACEHOLDER = /\/path\/to\/|path\/to\/service-account\.json/;
 
 export function isPlaceholderAdcPath(path: string): boolean {
@@ -20,7 +29,7 @@ export function stripPlaceholderAdc(): { stripped: boolean; reason: string | nul
     delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     return { stripped: true, reason: "GAC に JSON 本文が入っていたので削除した。applicationDefault を使う" };
   }
-  if (isPlaceholderAdcPath(gac) || !existsSync(gac)) {
+  if (isPlaceholderAdcPath(gac) || !pathExists(gac)) {
     delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     return { stripped: true, reason: "仮の ADC パスまたは欠落ファイルを削除した。applicationDefault を使う" };
   }
@@ -38,14 +47,14 @@ export function wellKnownAdcPath(): string | null {
   const custom = process.env.CLOUDSDK_CONFIG?.trim();
   if (custom) {
     const p = join(custom, "application_default_credentials.json");
-    if (existsSync(p)) return p;
+    if (pathExists(p)) return p;
   }
   const unix = join(homedir(), ".config/gcloud/application_default_credentials.json");
-  if (existsSync(unix)) return unix;
+  if (pathExists(unix)) return unix;
   const appData = process.env.APPDATA;
   if (appData) {
     const win = join(appData, "gcloud/application_default_credentials.json");
-    if (existsSync(win)) return win;
+    if (pathExists(win)) return win;
   }
   return null;
 }
@@ -57,7 +66,7 @@ export function wellKnownAdcPath(): string | null {
 export function adcRuntimeSource(): AdcRuntimeSource {
   stripPlaceholderAdc();
   const gac = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim();
-  if (gac && existsSync(gac)) {
+  if (gac && pathExists(gac)) {
     return { usable: true, kind: "gac-file", detail: "GOOGLE_APPLICATION_CREDENTIALS のファイルがある" };
   }
   if (wellKnownAdcPath()) {

@@ -3,6 +3,9 @@ import { resolve } from "node:path";
 import { TIME_ZONE } from "./settings";
 import { adcRuntimeSource, stripPlaceholderAdc } from "@/server/auth/adc";
 import { emulatorHosts, probePortSync } from "@/server/auth/emulatorGuard";
+import type { AppProfile, PersistTarget, ProviderMode, RuntimeMode } from "./env-types";
+
+export type { AppProfile, PersistTarget, ProviderMode, RuntimeMode } from "./env-types";
 
 function loadDotEnv() {
   const g = globalThis as { __futariEnvLoaded?: boolean };
@@ -48,8 +51,6 @@ function readNumber(name: string, fallback: number): number {
 }
 
 /** DEV/MOCK は開発プロファイル。LIVE 要求時にキー不足でも MOCK へ落とさない。 */
-export type AppProfile = "DEV" | "EMULATOR" | "LIVE";
-export type RuntimeMode = "MOCK" | "LIVE";
 
 export function getEnv() {
   const firebaseConfigured = Boolean(
@@ -142,8 +143,6 @@ export function publicBlockers(): { code: string; item: string; status: "BLOCKED
   return items;
 }
 
-export type ProviderMode = "LIVE" | "MOCK" | "BLOCKED";
-export type PersistTarget = "json" | "firestore-live" | "firestore-emulator";
 
 export function providerModes(): {
   persist: PersistTarget;
