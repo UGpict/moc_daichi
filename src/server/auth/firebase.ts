@@ -2,7 +2,7 @@ import { getEnv } from "@/config/env";
 import { getApps, initializeApp, applicationDefault, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { stripPlaceholderAdc } from "./adc";
+import { adcRuntimeSource, stripPlaceholderAdc } from "./adc";
 import { applyEmulatorEnv, emulatorStatus } from "./emulatorGuard";
 import { PersistBlockedError } from "@/server/repositories/persistErrors";
 
@@ -44,6 +44,11 @@ export function firebaseAdminApp(): App | null {
       return app;
     }
     stripPlaceholderAdc();
+    const adc = adcRuntimeSource();
+    if (!adc.usable) {
+      recordInitError("firebase-admin initializeApp(applicationDefault)", new Error(adc.detail));
+      return null;
+    }
     app = initializeApp({
       credential: applicationDefault(),
       projectId: env.firebaseProjectId ?? undefined,

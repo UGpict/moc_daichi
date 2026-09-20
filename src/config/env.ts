@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TIME_ZONE } from "./settings";
-import { stripPlaceholderAdc } from "@/server/auth/adc";
+import { adcRuntimeSource, stripPlaceholderAdc } from "@/server/auth/adc";
 import { emulatorHosts, probePortSync } from "@/server/auth/emulatorGuard";
 
 function loadDotEnv() {
@@ -181,6 +181,17 @@ export function persistBlockers(): { code: string; item: string; status: "BLOCKE
       ];
     }
     return [];
+  }
+  const adc = adcRuntimeSource();
+  if (!adc.usable) {
+    return [
+      {
+        code: "FIRESTORE",
+        item: `CREDENTIALS: ${adc.detail}`,
+        status: "BLOCKED",
+        kind: "CREDENTIALS",
+      },
+    ];
   }
   return [];
 }

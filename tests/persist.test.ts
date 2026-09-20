@@ -6,7 +6,7 @@ import {
   redactPersistText,
 } from "../src/server/repositories/persistErrors";
 import { diagnosePersistSync } from "../src/server/repositories/persistDiagnose";
-import { stripPlaceholderAdc } from "../src/server/auth/adc";
+import { adcRuntimeSource, stripPlaceholderAdc } from "../src/server/auth/adc";
 
 describe("persist error classification", () => {
   it("keeps credential fetch, permission, and unconfigured apart", () => {
@@ -48,9 +48,11 @@ describe("persist diagnose without service account checks", () => {
     const prevRuntime = process.env.APP_RUNTIME;
     const prevEmu = process.env.FIRESTORE_EMULATOR_HOST;
     const prevAuth = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    const prevVercel = process.env.VERCEL;
     delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     delete process.env.FIRESTORE_EMULATOR_HOST;
     delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    delete process.env.VERCEL;
     process.env.APP_RUNTIME = "LIVE";
     const d = diagnosePersistSync();
     if (prev != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prev;
@@ -59,6 +61,8 @@ describe("persist diagnose without service account checks", () => {
     else delete process.env.APP_RUNTIME;
     if (prevEmu != null) process.env.FIRESTORE_EMULATOR_HOST = prevEmu;
     if (prevAuth != null) process.env.FIREBASE_AUTH_EMULATOR_HOST = prevAuth;
+    if (prevVercel != null) process.env.VERCEL = prevVercel;
+    else delete process.env.VERCEL;
     assert.notEqual(d.kind, "UNIMPLEMENTED");
     assert.equal(d.implemented.userAdc, true);
     assert.equal(d.adc.usesApplicationDefault, true);
@@ -94,6 +98,42 @@ describe("persist diagnose without service account checks", () => {
     assert.equal(d.refusedProduction, true);
     assert.equal(d.emulator, true);
     assert.match(d.detail, /本番/);
+  });
+
+  it("fails fast on Vercel without ADC so /api/me does not wait for metadata", () => {
+    const prev = {
+      gac: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      runtime: process.env.APP_RUNTIME,
+      emu: process.env.FIRESTORE_EMULATOR_HOST,
+      auth: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+      vercel: process.env.VERCEL,
+      kService: process.env.K_SERVICE,
+    };
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    delete process.env.FIRESTORE_EMULATOR_HOST;
+    delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    delete process.env.K_SERVICE;
+    process.env.APP_RUNTIME = "LIVE";
+    process.env.VERCEL = "1";
+    const src = adcRuntimeSource();
+    const d = diagnosePersistSync();
+    if (prev.gac != null) process.env.GOOGLE_APPLICATION_CREDENTIALS = prev.gac;
+    else delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (prev.runtime != null) process.env.APP_RUNTIME = prev.runtime;
+    else delete process.env.APP_RUNTIME;
+    if (prev.emu != null) process.env.FIRESTORE_EMULATOR_HOST = prev.emu;
+    else delete process.env.FIRESTORE_EMULATOR_HOST;
+    if (prev.auth != null) process.env.FIREBASE_AUTH_EMULATOR_HOST = prev.auth;
+    else delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    if (prev.vercel != null) process.env.VERCEL = prev.vercel;
+    else delete process.env.VERCEL;
+    if (prev.kService != null) process.env.K_SERVICE = prev.kService;
+    else delete process.env.K_SERVICE;
+    assert.equal(src.usable, false);
+    assert.equal(src.kind, "none");
+    assert.equal(d.kind, "CREDENTIALS");
+    assert.match(d.detail, /Vercel/);
+    assert.notEqual(d.kind, "ok");
   });
 
   it("keeps PersistBlockedError kinds distinct", () => {

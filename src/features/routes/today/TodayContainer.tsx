@@ -31,6 +31,7 @@ export function TodayContainer() {
     if (!me) return;
     let stop = false;
     let ready = false;
+    let failed = false;
     const load = async () => {
       try {
         const next = await api<Today>("/api/today");
@@ -38,12 +39,13 @@ export function TodayContainer() {
         setData(next);
         ready = next.status === "READY" && next.items.length > 0;
       } catch (e) {
+        failed = true;
         if (!stop) setError(e instanceof Error ? e.message : "error");
       }
     };
     void load();
     const t = setInterval(() => {
-      if (!ready) void load();
+      if (!ready && !failed) void load();
     }, 800);
     return () => {
       stop = true;

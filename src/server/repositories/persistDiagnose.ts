@@ -1,7 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import { getEnv } from "@/config/env";
-import { stripPlaceholderAdc } from "@/server/auth/adc";
+import { adcRuntimeSource, stripPlaceholderAdc } from "@/server/auth/adc";
 import { emulatorHosts, probePortSync } from "@/server/auth/emulatorGuard";
 import { lastFirebaseAdminInitError } from "@/server/auth/firebase";
 import {
@@ -165,6 +165,10 @@ export function diagnosePersistSync(): PersistDiagnosis {
   if (!env.firebaseProjectId) {
     return fail("NOT_CONFIGURED", "getEnv().firebaseProjectId", "FIREBASE_PROJECT_ID が無い。Firestore 未設定。");
   }
+  const adc = adcRuntimeSource();
+  if (!adc.usable) {
+    return fail("CREDENTIALS", "applicationDefault()", adc.detail);
+  }
   return ok(
     "applicationDefault() で接続する。GOOGLE_APPLICATION_CREDENTIALS 必須ではない。実接続は diagnosePersist()",
     "firestore:collections",
@@ -176,7 +180,7 @@ export function diagnosePersistSync(): PersistDiagnosis {
 export async function diagnosePersist(): Promise<PersistDiagnosis> {
   const sync = diagnosePersistSync();
   if (sync.backend === "json") return sync;
-  if (sync.emulator && sync.kind !== "ok") return sync;
+  if (sync.kind !== "ok") return sync;
   try {
     const { firestoreDb } = await import("@/server/auth/firebase");
     if (sync.emulator) {

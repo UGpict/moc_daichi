@@ -23,6 +23,23 @@ type AuthState = {
 };
 
 const AuthContext = createContext<AuthState | null>(null);
+const AUTH_WAIT_MS = 8_000;
+
+function withDeadline<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label}がタイムアウトしました`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
@@ -31,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const next = await api<Me>("/api/me");
+      const next = await withDeadline(api<Me>("/api/me"), AUTH_WAIT_MS, "認証の確認");
       setMe(next);
       setError(null);
       return next;
@@ -44,10 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInGuest = useCallback(async () => {
     if (firebaseConfigured()) {
-      const token = await signInFirebaseAnonymous();
+      const token = await withDeadline(signInFirebaseAnonymous(), AUTH_WAIT_MS, "ゲストログイン");
       setBearerToken(token);
     }
-    const next = await ensureAuth();
+    const next = await withDeadline(ensureAuth(), AUTH_WAIT_MS, "認証の確認");
     setMe(next);
     setError(null);
     return next;
@@ -70,34 +87,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const safety = window.setTimeout(() => {
+      if (cancelled) return;
+      setLoading(false);
+      setError((cur) => cur ?? "認証の確認がタイムアウトしました");
+    }, AUTH_WAIT_MS);
+    const finish = () => {
+      if (!cancelled) setLoading(false);
+      window.clearTimeout(safety);
+    };
+
     if (firebaseConfigured()) {
       const unsub = watchIdToken(async (token) => {
         setBearerToken(token);
         if (!token) {
           setMe(null);
-          setLoading(false);
+          finish();
           return;
         }
         try {
-          const next = await api<Me>("/api/me");
+          const next = await withDeadline(api<Me>("/api/me"), AUTH_WAIT_MS, "認証の確認");
+          if (cancelled) return;
           setMe(next);
           setError(null);
         } catch (e) {
-          setError(e instanceof Error ? e.message : "auth");
+          if (!cancelled) setError(e instanceof Error ? e.message : "auth");
         } finally {
-          setLoading(false);
+          finish();
         }
       });
-      return () => unsub();
+      return () => {
+        cancelled = true;
+        window.clearTimeout(safety);
+        unsub();
+      };
     }
-    void ensureAuth()
+    void withDeadline(ensureAuth(), AUTH_WAIT_MS, "認証の確認")
       .then((next) => {
+        if (cancelled) return;
         setMe(next);
         setError(null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "auth"))
-      .finally(() => setLoading(false));
-    return undefined;
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "auth");
+      })
+      .finally(finish);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(safety);
+    };
   }, []);
 
   const value = useMemo(

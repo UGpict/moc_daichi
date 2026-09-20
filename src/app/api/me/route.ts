@@ -15,7 +15,21 @@ export async function GET(request: Request) {
   };
   try {
     const { diagnosePersist } = await import("@/server/repositories/persistDiagnose");
-    persist = await diagnosePersist();
+    persist = await Promise.race([
+      diagnosePersist(),
+      new Promise<Record<string, unknown>>((resolve) => {
+        setTimeout(
+          () =>
+            resolve({
+              backend: env.persistBackend,
+              kind: "CONNECT",
+              detail: "persist 診断がタイムアウトした。metadata 待ちで準備中のままにしない",
+              operation: "diagnosePersist",
+            }),
+          2500,
+        );
+      }),
+    ]);
   } catch (error) {
     if (isPersistBlocked(error)) {
       persist = { backend: env.persistBackend, kind: error.kind, detail: error.message, operation: error.operation };
