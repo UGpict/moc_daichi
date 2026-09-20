@@ -1,8 +1,6 @@
 import { getEnv } from "@/config/env";
 import { hmacSha256, newId } from "@/lib/ids";
 import { realNowIso } from "@/lib/time";
-import { withStore } from "@/server/repositories/store";
-import { verifyFirebaseIdToken } from "./firebase";
 
 const COOKIE = "futari_token";
 
@@ -45,6 +43,7 @@ export async function verifyRequestToken(token: string | null | undefined): Prom
     return verifyDevToken(token);
   }
   if (env.profile === "LIVE" || env.profile === "EMULATOR") {
+    const { verifyFirebaseIdToken } = await import("./firebase");
     return verifyFirebaseIdToken(token);
   }
   return verifyDevToken(token);
@@ -62,6 +61,7 @@ export async function issueAnonymous(): Promise<{ uid: string; token: string }> 
   const uid = createUid();
   const token = signToken(uid);
   try {
+    const { withStore } = await import("@/server/repositories/store");
     await withStore((db) => {
       db.tokens[token] = { uid, createdAt: realNowIso() };
     }, { token });

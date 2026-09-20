@@ -2,10 +2,26 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TIME_ZONE } from "./settings";
 import { adcRuntimeSource, stripPlaceholderAdc } from "@/server/auth/adc";
-import { emulatorHosts, probePortSync } from "@/server/auth/emulatorGuard";
 import type { AppProfile, PersistTarget, ProviderMode, RuntimeMode } from "./env-types";
 
 export type { AppProfile, PersistTarget, ProviderMode, RuntimeMode } from "./env-types";
+
+function fileExists(path: string): boolean {
+  try {
+    return typeof existsSync === "function" && existsSync(path);
+  } catch {
+    return false;
+  }
+}
+
+function readText(path: string): string | null {
+  try {
+    if (typeof readFileSync !== "function") return null;
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+}
 
 function loadDotEnv() {
   const g = globalThis as { __futariEnvLoaded?: boolean };
@@ -13,8 +29,10 @@ function loadDotEnv() {
   g.__futariEnvLoaded = true;
   for (const name of [".env.local", ".env"]) {
     const file = resolve(/* turbopackIgnore: true */ process.cwd(), name);
-    if (!existsSync(file)) continue;
-    for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!fileExists(file)) continue;
+    const text = readText(file);
+    if (!text) continue;
+    for (const line of text.split("\n")) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) continue;
       const eq = trimmed.indexOf("=");
@@ -93,8 +111,10 @@ export function getEnv() {
     firebaseApiKey: read("NEXT_PUBLIC_FIREBASE_API_KEY"),
     firebaseAuthDomain: read("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"),
     firebaseAppId: read("NEXT_PUBLIC_FIREBASE_APP_ID"),
-    firestoreEmulatorHost: profile === "EMULATOR" ? emulatorHosts().firestore : read("FIRESTORE_EMULATOR_HOST"),
-    authEmulatorHost: profile === "EMULATOR" ? emulatorHosts().auth : read("FIREBASE_AUTH_EMULATOR_HOST"),
+    firestoreEmulatorHost:
+      profile === "EMULATOR" ? (read("FIRESTORE_EMULATOR_HOST") ?? "127.0.0.1:8080") : read("FIRESTORE_EMULATOR_HOST"),
+    authEmulatorHost:
+      profile === "EMULATOR" ? (read("FIREBASE_AUTH_EMULATOR_HOST") ?? "127.0.0.1:9099") : read("FIREBASE_AUTH_EMULATOR_HOST"),
     persistBackend: profile === "DEV" ? ("json" as const) : ("firestore" as const),
     enableDemoControls: readBool("ENABLE_DEMO_CONTROLS", false),
     demoAllowedUids: (read("DEMO_ALLOWED_UIDS") ?? "")
@@ -166,20 +186,32 @@ export function persistBlockers(): { code: string; item: string; status: "BLOCKE
   if (env.persistBackend === "json") return [];
   stripPlaceholderAdc();
   if (env.profile === "EMULATOR" || env.firestoreEmulatorHost || env.authEmulatorHost) {
-    const hosts = emulatorHosts();
-    const firestoreUp = probePortSync(hosts.firestore);
-    const authUp = probePortSync(hosts.auth);
-    if (!firestoreUp || !authUp) {
+    try {
+      const { emulatorHosts, probePortSync } = require("@/server/auth/emulatorGuard") as typeof import("@/server/auth/emulatorGuard");
+      const hosts = emulatorHosts();
+      const firestoreUp = probePortSync(hosts.firestore);
+      const authUp = probePortSync(hosts.auth);
+      if (!firestoreUp || !authUp) {
+        return [
+          {
+            code: "FIRESTORE",
+            item: `CONNECT: Firebase Emulator 未起動（firestore=${firestoreUp} auth=${authUp} @ ${hosts.firestore} / ${hosts.auth}）。本番へは接続しない`,
+            status: "BLOCKED",
+            kind: "CONNECT",
+          },
+        ];
+      }
+      return [];
+    } catch {
       return [
         {
           code: "FIRESTORE",
-          item: `CONNECT: Firebase Emulator 未起動（firestore=${firestoreUp} auth=${authUp} @ ${hosts.firestore} / ${hosts.auth}）。本番へは接続しない`,
+          item: "CONNECT: Emulator probe を読めない。本番へは接続しない",
           status: "BLOCKED",
           kind: "CONNECT",
         },
       ];
     }
-    return [];
   }
   const adc = adcRuntimeSource();
   if (!adc.usable) {

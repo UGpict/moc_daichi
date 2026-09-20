@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
-import { getEnv } from "@/config/env";
-import { issueAnonymous, tokenCookieName } from "@/server/auth";
-import { json } from "@/server/api/http";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST() {
-  const env = getEnv();
-  if (env.profile === "LIVE") {
-    return json({ error: "LIVE では開発用匿名トークンを発行しません。Firebase Auth を使ってください" }, 403);
-  }
   try {
+    const { getEnv } = await import("@/config/env");
+    const { issueAnonymous, tokenCookieName } = await import("@/server/auth");
+    const env = getEnv();
+    if (env.profile === "LIVE") {
+      return NextResponse.json(
+        { error: "LIVE では開発用匿名トークンを発行しません。Firebase Auth を使ってください" },
+        { status: 403 },
+      );
+    }
     const { uid, token } = await issueAnonymous();
     const res = NextResponse.json({ uid, token, runtime: env.profile === "EMULATOR" ? "EMULATOR" : "DEV" });
     res.cookies.set(tokenCookieName(), token, {
@@ -19,6 +24,9 @@ export async function POST() {
     });
     return res;
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "ゲストログインに失敗しました" }, 500);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "ゲストログインに失敗しました" },
+      { status: 500 },
+    );
   }
 }
