@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const { getEnv } = await import("@/config/env");
     const { issueAnonymous, tokenCookieName } = await import("@/server/auth");
+    const { attachCarry, bindIncomingRequest } = await import("@/server/repositories/storeCarry");
+    bindIncomingRequest(request);
     const env = getEnv();
     if (env.profile === "LIVE") {
       return NextResponse.json(
@@ -22,7 +24,7 @@ export async function POST() {
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
     });
-    return res;
+    return attachCarry(res);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "ゲストログインに失敗しました" },

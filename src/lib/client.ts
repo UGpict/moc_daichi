@@ -1,3 +1,11 @@
+import {
+  STORE_CLIENT_KEY,
+  STORE_HEADER,
+  STORE_HEADER_COUNT,
+  readCarryHeader,
+  writeCarryHeaders,
+} from "./storeCarryMeta";
+
 let bearerToken: string | null = null;
 
 export function setBearerToken(token: string | null) {
@@ -8,6 +16,34 @@ export function getBearerToken() {
   return bearerToken;
 }
 
+function loadCarriedStore(): string | null {
+  try {
+    return sessionStorage.getItem(STORE_CLIENT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveCarriedStore(encoded: string) {
+  try {
+    sessionStorage.setItem(STORE_CLIENT_KEY, encoded);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function applyCarriedStore(headers: Headers) {
+  const encoded = loadCarriedStore();
+  if (!encoded) return;
+  if (headers.has(STORE_HEADER) || headers.has(STORE_HEADER_COUNT)) return;
+  writeCarryHeaders(encoded, (name, value) => headers.set(name, value));
+}
+
+function captureCarriedStore(res: Response) {
+  const encoded = readCarryHeader((name) => res.headers.get(name));
+  if (encoded) saveCarriedStore(encoded);
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   if (init?.body && !headers.has("Content-Type")) {
@@ -16,11 +52,13 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (bearerToken && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${bearerToken}`);
   }
+  applyCarriedStore(headers);
   const res = await fetch(path, {
     ...init,
     headers,
     credentials: "include",
   });
+  captureCarriedStore(res);
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
     throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -56,6 +94,7 @@ export function clearClientCache() {
       if (k?.startsWith("futari.")) keys.push(k);
     }
     for (const k of keys) sessionStorage.removeItem(k);
+    sessionStorage.removeItem(STORE_CLIENT_KEY);
   } catch {
     /* ignore */
   }

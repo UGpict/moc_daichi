@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getEnv } from "@/config/env";
 import { verifyRequestToken } from "@/server/auth";
 import { isPersistBlocked } from "@/server/repositories/persistErrors";
+import { attachCarry, bindIncomingRequest } from "@/server/repositories/storeCarry";
 
 export function json(data: unknown, status = 200) {
-  return NextResponse.json(data, { status });
+  return attachCarry(NextResponse.json(data, { status }));
 }
 
 export function bearer(request: Request): string | null {
@@ -18,6 +19,7 @@ export function bearer(request: Request): string | null {
 }
 
 export async function requireUid(request: Request): Promise<{ uid: string } | { error: NextResponse }> {
+  bindIncomingRequest(request);
   const uid = await verifyRequestToken(bearer(request));
   if (!uid) return { error: json({ error: "unauthorized" }, 401) };
   return { uid };

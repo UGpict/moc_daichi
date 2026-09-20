@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync, unlinkSync, openSync, closeSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { StoreScope } from "./storeScope";
+import { ensureCarryLoaded, peekCarriedDb, rememberCarriedDb, shouldCarryStore } from "./storeCarry";
 import type {
   Approval,
   AppEvent,
@@ -134,6 +135,10 @@ function hydrate(db: Db): Db {
 }
 
 function readDb(): Db {
+  if (shouldCarryStore()) {
+    const carried = peekCarriedDb();
+    if (carried) return hydrate(carried);
+  }
   const mem = memorySlot().__futariJsonDb;
   if (mem) return mem;
   const path = storePath();
@@ -146,6 +151,7 @@ function readDb(): Db {
 }
 
 function writeDb(db: Db) {
+  rememberCarriedDb(db);
   memorySlot().__futariJsonDb = db;
   const path = storePath();
   try {
@@ -159,6 +165,7 @@ function writeDb(db: Db) {
 }
 
 async function jsonWithStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+  await ensureCarryLoaded();
   try {
     const fd = await acquireLock();
     try {
@@ -173,12 +180,14 @@ async function jsonWithStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
     if (!isReadonlyFs(error)) throw error;
     const db = readDb();
     const result = await fn(db);
+    rememberCarriedDb(db);
     memorySlot().__futariJsonDb = db;
     return result;
   }
 }
 
 async function jsonReadStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
+  await ensureCarryLoaded();
   try {
     const fd = await acquireLock();
     try {

@@ -126,7 +126,7 @@ Vercel には常駐 worker も実行 SA の ADC も無い。`VERCEL=1` のとき
 - Firestore の `applicationDefault()` は metadata 待ちせず CREDENTIALS にする（`/api/me` が返らずボタンが準備中のまま止まるのを防ぐ）。LIVE は JSON へ落とさない
 - Hobby の 10 秒制限だと INITIAL_PLAN（最大 90 秒）は途中で切れる
 
-公開の LIVE は Cloud Run（timeout 300、割り当て SA）を使う。Vercel で見た目だけ回すなら Environment Variables は空のままでよい（未設定は `MOCK`）。デプロイ FS には書けないので JSON ストアは `/tmp/futari-log`（インスタンスごとに消える）。`cursor/futari-log-v04-61-f3e3` を Promote to Production する。今の Production を Redeploy しない。
+公開の LIVE は Cloud Run（timeout 300、割り当て SA）を使う。Vercel で見た目だけ回すなら Environment Variables は空のままでよい（未設定は `MOCK`）。デプロイ FS には書けないので JSON ストアは `/tmp/futari-log`（インスタンスごとに消える）。続けて呼ぶ API（カップル作成 → セッション作成 → `startRun`）が別 isolate に当たっても同じ JSON を見るよう、gzip したストアを `futari_db_*` Cookie と `x-futari-store` で持ち回る。LIVE / EMULATOR ではこの持ち回りは使わない。`cursor/futari-log-v04-61-f3e3` を Promote to Production する。今の Production を Redeploy しない。
 
 ## Secret Manager
 
