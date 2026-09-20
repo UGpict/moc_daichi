@@ -4,13 +4,15 @@ import { claimPendingRun, claimSpecificRun, heartbeat } from "@/server/agent/lea
 import { executeRun } from "@/server/agent/execute";
 import { maskSecrets } from "@/server/security/logMask";
 
-export type JobDispatchMode = "poller" | "http" | "inline";
+export type JobDispatchMode = "poller" | "http" | "inline" | "sync";
 
 export function jobDispatchMode(): JobDispatchMode {
   const env = getEnv();
   const raw = env.workerMode;
-  if (raw === "http" || raw === "inline" || raw === "poller") return raw;
-  return env.cloudRunService ? "http" : "poller";
+  if (raw === "http" || raw === "inline" || raw === "poller" || raw === "sync") return raw;
+  if (env.cloudRunService) return "http";
+  if (process.env.VERCEL) return "sync";
+  return "poller";
 }
 
 export function workerJobsUrl(): string | null {
@@ -60,6 +62,10 @@ export async function enqueueRun(
       console.error("inline job", maskSecrets(String(error)));
     });
     return { mode, accepted: true, detail: "同一プロセスで実行" };
+  }
+  if (mode === "sync") {
+    await processOneJob(runId);
+    return { mode, accepted: true, detail: "同一リクエストで実行（Vercel 等。常駐 worker は無い）" };
   }
   const viaTasks = await enqueueCloudTask(runId, deps).catch((error) => {
     console.error("cloud tasks", maskSecrets(String(error)));

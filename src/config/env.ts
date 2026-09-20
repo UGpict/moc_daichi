@@ -106,7 +106,10 @@ export function getEnv() {
     demoLng: readNumber("DEMO_LNG", 136.881537),
     demoDate: read("DEMO_DATE") ?? "2026-09-19",
     workerConcurrency: Math.max(1, readNumber("WORKER_CONCURRENCY", 1)),
-    workerMode: (read("WORKER_MODE") ?? (read("K_SERVICE") ? "http" : "poller")).toLowerCase(),
+    workerMode: (
+      read("WORKER_MODE") ??
+      (read("K_SERVICE") ? "http" : read("VERCEL") ? "sync" : "poller")
+    ).toLowerCase(),
     workerInvokeUrl: read("WORKER_INVOKE_URL"),
     workerSharedSecret: read("WORKER_SHARED_SECRET"),
     cloudTasksQueue: read("CLOUD_TASKS_QUEUE"),

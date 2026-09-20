@@ -10,11 +10,12 @@ import { CostBadge } from "@/components/cost-badge";
 import { ModeBanner } from "@/components/mode-banner";
 import { SpotCard } from "@/components/plan/spot-card";
 import { useSessionPoll } from "@/hooks/useSessionPoll";
+import { useAuth } from "@/features/common/auth/AuthContext";
 import { cn } from "@/lib/cn";
 import type { Snapshot } from "@/lib/types";
 
 const PROGRESS_LABEL: Record<string, string> = {
-  PENDING: "準備",
+  PENDING: "ジョブ起動待ち",
   RUNNING: "実行中",
   CACHE_HIT: "今日の候補",
   TOOL_STARTED: "ツール開始",
@@ -26,6 +27,7 @@ const PROGRESS_LABEL: Record<string, string> = {
 
 export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
   const router = useRouter();
+  const { me } = useAuth();
   const { data, error, setData } = useSessionPoll(sessionId);
   const [draft, setDraft] = useState<string | null>(null);
   const [note, setNote] = useState("カフェは喜んでた。展示は途中で疲れてた");
@@ -93,9 +95,12 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
         {generating ? (
           <Card className="bg-paper-deep">
             <p className="text-sm">
-              {latestRun?.status === "PENDING" ? "ジョブ起動待ち。" : "実行中。"}
+              {latestRun?.status === "PENDING"
+                ? "準備のまま止まっているときは、計画ジョブが起動していません。Vercel には常駐 worker が無いので、同じリクエストで実行します。"
+                : "実行中。"}
               行程を組み立てています。朝の一回取得があればそれを使い、都度探している演出ではありません。
             </p>
+            {latestRun?.error ? <p className="mt-2 text-sm text-rose">{latestRun.error}</p> : null}
             <ol className="mt-2 space-y-1 text-sm">
               {data.events.slice(-6).map((e) => (
                 <li key={e.eventId}>{PROGRESS_LABEL[e.type] ?? e.type}: {e.summary}</li>
@@ -217,6 +222,8 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
           <Button onClick={() => void post(`/api/sessions/${data.session.id}/progress`, { confirm: true, status: "CONFIRMED" })}>
             このプランで決定
           </Button>
+          {me?.demoControls ? (
+            <>
           <Button
             variant="secondary"
             onClick={() =>
@@ -254,6 +261,8 @@ export function PlanDetailContainer({ sessionId }: { sessionId: string }) {
           >
             満席（シナリオ注入）
           </Button>
+            </>
+          ) : null}
           <Button
             variant="ghost"
             onClick={async () => {

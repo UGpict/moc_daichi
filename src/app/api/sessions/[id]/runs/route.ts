@@ -1,4 +1,6 @@
 import { json, persistHttp, requireUid, idempotencyKey } from "@/server/api/http";
+
+export const maxDuration = 300;
 import { startRun } from "@/server/api/actions";
 import { sha256 } from "@/lib/ids";
 import type { RunKind } from "@/domain/schemas";

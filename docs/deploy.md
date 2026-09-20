@@ -120,6 +120,8 @@ Firebase の `NEXT_PUBLIC_*` と `FIREBASE_PROJECT_ID` は Secret ではなく�
 
 この VM からはデプロイしていない。
 
+Vercel には常駐 worker が無い。`VERCEL=1` のときは `WORKER_MODE=sync` 相当で、計画を同じ HTTP リクエスト内で実行する。Hobby の 10 秒制限だと INITIAL_PLAN（最大 90 秒）は途中で切れる。公開は Cloud Run（timeout 300）を使う。
+
 ## Secret Manager
 
 サーバー側だけで扱う。クライアントに出さない。

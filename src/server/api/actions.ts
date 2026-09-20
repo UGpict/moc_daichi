@@ -1,6 +1,6 @@
 import { DEADLINES_MS, SCHEMA_VERSION, PROMPT_VERSION, TOOL_VERSION, MODEL_SETTINGS_VERSION } from "@/config/settings";
 import { getEnv, providerModes, publicBlockers } from "@/config/env";
-import { enqueueRun, scheduleEnqueueRetry } from "@/server/jobs/dispatch";
+import { enqueueRun, jobDispatchMode, scheduleEnqueueRetry } from "@/server/jobs/dispatch";
 import { maskSecrets } from "@/server/security/logMask";
 import {
   planningInputSchema,
@@ -284,21 +284,32 @@ export async function startRun(input: {
     return { ok: true as const, duplicated: false, runId: id };
   }, { sessionId: input.sessionId, idempotencyKey: input.idempotencyKey ?? undefined });
   if (result.ok && result.runId) {
-    void enqueueRun(result.runId)
-      .then((enqueued) => {
-        if (!enqueued.accepted) scheduleEnqueueRetry(result.runId);
-      })
-      .catch((error) => {
-        scheduleEnqueueRetry(result.runId);
-        console.error("job enqueue", maskSecrets(String(error)));
-      });
+    if (jobDispatchMode() === "sync") {
+      await enqueueRun(result.runId);
+    } else {
+      void enqueueRun(result.runId)
+        .then((enqueued) => {
+          if (!enqueued.accepted) scheduleEnqueueRetry(result.runId);
+        })
+        .catch((error) => {
+          scheduleEnqueueRetry(result.runId);
+          console.error("job enqueue", maskSecrets(String(error)));
+        });
+    }
   }
   return result;
 }
 
-function kickPendingRuns(runs: { id: string; status: string }[]) {
-  for (const run of runs) {
-    if (run.status !== "PENDING") continue;
+async function kickPendingRuns(runs: { id: string; status: string }[]) {
+  const pending = runs.filter((run) => run.status === "PENDING");
+  if (pending.length === 0) return;
+  if (jobDispatchMode() === "sync") {
+    for (const run of pending) {
+      await enqueueRun(run.id);
+    }
+    return;
+  }
+  for (const run of pending) {
     void enqueueRun(run.id).catch((error) => {
       console.error("job kick", maskSecrets(String(error)));
     });
@@ -312,7 +323,7 @@ export async function getSessionSnapshot(uid: string, sessionId: string) {
     if (found.couple.couple.ownerUid !== uid) return { ok: false as const, status: 403, error: "forbidden" };
     return { ok: true as const, data: snapshotOf(found.couple, found.bundle) };
   }, { sessionId });
-  if (result.ok) kickPendingRuns(result.data.runs);
+  if (result.ok) await kickPendingRuns(result.data.runs);
   return result;
 }
 

@@ -70,8 +70,14 @@ function withEnv(vars: Record<string, string | undefined>, fn: () => void | Prom
 
 describe("job dispatch", () => {
   it("defaults to poller off Cloud Run", () => {
-    withEnv({ WORKER_MODE: undefined, K_SERVICE: undefined }, () => {
+    withEnv({ WORKER_MODE: undefined, K_SERVICE: undefined, VERCEL: undefined }, () => {
       assert.equal(jobDispatchMode(), "poller");
+    });
+  });
+
+  it("uses sync on Vercel so PENDING is not left for a missing worker", () => {
+    withEnv({ WORKER_MODE: undefined, K_SERVICE: undefined, VERCEL: "1" }, () => {
+      assert.equal(jobDispatchMode(), "sync");
     });
   });
 
