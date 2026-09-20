@@ -61,9 +61,13 @@ export async function issueAnonymous(): Promise<{ uid: string; token: string }> 
   }
   const uid = createUid();
   const token = signToken(uid);
-  await withStore((db) => {
-    db.tokens[token] = { uid, createdAt: realNowIso() };
-  }, { token });
+  try {
+    await withStore((db) => {
+      db.tokens[token] = { uid, createdAt: realNowIso() };
+    }, { token });
+  } catch {
+    /* HMAC cookie だけで通る。Vercel の JSON 書き込み失敗でゲスト開始を止めない */
+  }
   return { uid, token };
 }
 

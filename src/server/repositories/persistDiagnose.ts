@@ -10,6 +10,7 @@ import {
   redactPersistText,
   type PersistBlockKind,
 } from "./persistErrors";
+import { jsonStoreFile } from "./store";
 
 export type PersistDiagnosis = {
   backend: "json" | "firestore";
@@ -52,8 +53,9 @@ function adcPath(): string | null {
 
 function leftoverStore() {
   try {
-    if (!existsSync(".data/store.json")) return { exists: false, bytes: null as number | null };
-    return { exists: true, bytes: statSync(".data/store.json").size };
+    const path = jsonStoreFile();
+    if (!existsSync(path)) return { exists: false, bytes: null as number | null };
+    return { exists: true, bytes: statSync(path).size };
   } catch {
     return { exists: false, bytes: null as number | null };
   }
@@ -157,7 +159,7 @@ export function diagnosePersistSync(): PersistDiagnosis {
   const env = getEnv();
   stripPlaceholderAdc();
   if (env.persistBackend === "json") {
-    return ok("DEV はローカル JSON（.data/store.json）", "json:.data/store.json", { emulator: false, emulatorReady: null });
+    return ok(`DEV はローカル JSON（${jsonStoreFile()}）`, "json:.data/store.json", { emulator: false, emulatorReady: null });
   }
   if (env.profile === "EMULATOR" || env.firestoreEmulatorHost || env.authEmulatorHost) {
     return emulatorDownDiagnosis();

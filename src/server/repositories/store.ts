@@ -57,8 +57,36 @@ export type Db = {
   drafts: Record<string, SelectionDraft>;
 };
 
-const STORE_PATH = join(process.cwd(), ".data", "store.json");
-const LOCK_PATH = join(process.cwd(), ".data", "store.lock");
+function isReadonlyFs(error: unknown): boolean {
+  const code =
+    error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : "";
+  return code === "EROFS" || code === "EACCES" || code === "EPERM";
+}
+
+/** Vercel のデプロイ FS は読めても書けない。見た目デモは /tmp とプロセスメモリに置く。 */
+export function jsonStoreRoot(): string {
+  const override = process.env.FUTARI_STORE_DIR?.trim();
+  if (override) return override;
+  if (process.env.VERCEL || process.env.NOW_REGION) return join("/tmp", "futari-log");
+  return join(process.cwd(), ".data");
+}
+
+export function jsonStoreFile(): string {
+  return join(jsonStoreRoot(), "store.json");
+}
+
+function storePath() {
+  return jsonStoreFile();
+}
+
+function lockPath() {
+  return join(jsonStoreRoot(), "store.lock");
+}
+
+type JsonMemory = { __futariJsonDb?: Db };
+function memorySlot(): JsonMemory {
+  return globalThis as JsonMemory;
+}
 
 export function emptyDb(): Db {
   return { couples: {}, idempotency: {}, tokens: {}, digests: {}, drafts: {} };
@@ -69,20 +97,21 @@ function sleep(ms: number) {
 }
 
 async function acquireLock(): Promise<number> {
-  mkdirSync(dirname(STORE_PATH), { recursive: true });
+  mkdirSync(dirname(storePath()), { recursive: true });
+  const lock = lockPath();
   for (let i = 0; i < 80; i++) {
     try {
-      return openSync(LOCK_PATH, "wx");
+      return openSync(lock, "wx");
     } catch {
       await sleep(25);
     }
   }
   try {
-    unlinkSync(LOCK_PATH);
+    unlinkSync(lock);
   } catch {
     /* ignore */
   }
-  return openSync(LOCK_PATH, "wx");
+  return openSync(lock, "wx");
 }
 
 function releaseLock(fd: number) {
@@ -92,49 +121,74 @@ function releaseLock(fd: number) {
     /* ignore */
   }
   try {
-    unlinkSync(LOCK_PATH);
+    unlinkSync(lockPath());
   } catch {
     /* ignore */
   }
 }
 
+function hydrate(db: Db): Db {
+  db.digests ??= {};
+  db.drafts ??= {};
+  return db;
+}
+
 function readDb(): Db {
-  if (!existsSync(STORE_PATH)) return emptyDb();
+  const mem = memorySlot().__futariJsonDb;
+  if (mem) return mem;
+  const path = storePath();
+  if (!existsSync(path)) return emptyDb();
   try {
-    const db = JSON.parse(readFileSync(STORE_PATH, "utf8")) as Db;
-    db.digests ??= {};
-    db.drafts ??= {};
-    return db;
+    return hydrate(JSON.parse(readFileSync(path, "utf8")) as Db);
   } catch {
     return emptyDb();
   }
 }
 
 function writeDb(db: Db) {
-  mkdirSync(dirname(STORE_PATH), { recursive: true });
-  const tmp = `${STORE_PATH}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify(db));
-  renameSync(tmp, STORE_PATH);
+  memorySlot().__futariJsonDb = db;
+  const path = storePath();
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    const tmp = `${path}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(db));
+    renameSync(tmp, path);
+  } catch (error) {
+    if (!isReadonlyFs(error)) throw error;
+  }
 }
 
 async function jsonWithStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
-  const fd = await acquireLock();
   try {
+    const fd = await acquireLock();
+    try {
+      const db = readDb();
+      const result = await fn(db);
+      writeDb(db);
+      return result;
+    } finally {
+      releaseLock(fd);
+    }
+  } catch (error) {
+    if (!isReadonlyFs(error)) throw error;
     const db = readDb();
     const result = await fn(db);
-    writeDb(db);
+    memorySlot().__futariJsonDb = db;
     return result;
-  } finally {
-    releaseLock(fd);
   }
 }
 
 async function jsonReadStore<T>(fn: (db: Db) => T | Promise<T>): Promise<T> {
-  const fd = await acquireLock();
   try {
-    return await fn(readDb());
-  } finally {
-    releaseLock(fd);
+    const fd = await acquireLock();
+    try {
+      return await fn(readDb());
+    } finally {
+      releaseLock(fd);
+    }
+  } catch (error) {
+    if (!isReadonlyFs(error)) throw error;
+    return fn(readDb());
   }
 }
 

@@ -61,8 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInGuest = useCallback(async () => {
     if (firebaseConfigured()) {
-      const token = await withDeadline(signInFirebaseAnonymous(), AUTH_WAIT_MS, "ゲストログイン");
-      setBearerToken(token);
+      try {
+        const token = await withDeadline(signInFirebaseAnonymous(), AUTH_WAIT_MS, "ゲストログイン");
+        setBearerToken(token);
+      } catch {
+        /* MOCK 見た目デモでは開発用匿名へ落とす。LIVE は /api/auth/anonymous が 403 */
+      }
     }
     const next = await withDeadline(ensureAuth(), AUTH_WAIT_MS, "認証の確認");
     setMe(next);
